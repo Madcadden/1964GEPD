@@ -3003,11 +3003,8 @@ void SetCounterFactor(int factor)
  =======================================================================================================================
  */
 
-#define GE_readfiringrate 0x92B1C // function used to return current weapon's firing rate - only for automatics (single shot weapons can be left as they are)
-#define GE_menupage 0x8002A8C0 // menu page id, used to check if it is safe to inject the firing rate patch
-#define GE_updateaimtarget 0x5F624 // location of AI function to update aim target
-#define GE_dronegunfiringrate 0x7DF88 // drone gun sfx firing rate delta
-#define GE_watchlaserweapon (0x80020D90U + 0x11704 + (0x70 * 0x17))
+#define GE_RANDOM_EYE_CRC1 0xB72EDF71
+#define GE_RANDOM_EYE_CRC2 0xC22234D1
 #define PD_frameratecal 0x80014388 // location of function that returns when to draw at 60fps (thank you Ryan Dwyer for the code and single-handedly decompiling PD - you absolute legend)
 #define PD_masterclock 0x8038CECC // location of master clock code (TLB'd to 7F)
 #define PD_updateaimtarget 0x8025A7C8 // location of AI function to update aim target (TLB'd to 7F)
@@ -3016,46 +3013,103 @@ void SetCounterFactor(int factor)
 
 static const unsigned int pdcodearray[42] = {0x3C028006, 0x8C42EE10, 0x240E0007, 0x51C2000E, 0x3C02800A, 0x3C02800B, 0x8042CB97, 0x304E0080, 0x15C00017, 0x304E0040, 0x11C00012, 0x3C02800A, 0x8C42A424, 0x14400012, 0x00000000, 0x10000010, 0x00129040, 0x00000000, 0x804221D3, 0x30420040, 0x10400007, 0x00000000, 0x3C02800A, 0x8C42A424, 0x14400007, 0x00000000, 0x10000005, 0x00129040, 0x3C02800A, 0x8C42A424, 0x54400001, 0x00129040, 0x0BC5B3B5, 0x3631EBC2, 0x8DCE0020, 0x85CF0014, 0x85D80016, 0x15F80002, 0x27180001, 0xA5D80016, 0x0BC0C495, 0xAC860050}; // hijack timing code to allow combat boost at 60fps and fix camping guards at 60fps
 static const unsigned int gecodearray[20] = {0x27BDFFE8, 0x808E0007, 0x24010008, 0x00001025, 0x15C1000D, 0x8C8F004C, 0x31F80060, 0x1300000A, 0x8C8E001C, 0x85CF0030, 0x85D80032, 0x15F80002, 0x27180001, 0xA5D80032, 0xAC85004C, 0x0FC093E3, 0xAC860050, 0x34020001, 0x0BC0D71E, 0x27BD0018}; // fix camping guards at 60fps
+static const unsigned int gerandomeyecodearray[20] = {0x27BDFFE8, 0x808E0007, 0x24010008, 0x00001025, 0x15C1000D, 0x8C8F004C, 0x31F80060, 0x1300000A, 0x8C8E001C, 0x85CF0030, 0x85D80032, 0x15F80002, 0x27180001, 0xA5D80032, 0xAC85004C, 0x0FC09973, 0xAC860050, 0x34020001, 0x0BC0DB3E, 0x27BD0018}; // RandomEye relocation of the GE guard fix
 static const unsigned int geheadrollnop[6] = {0x000C2B60, 0x000C2B7C, 0x000C2B98, 0x000C2BB4, 0x000C2BD0, 0x000C2BEC}; // head roll float save instructions in rom, nop to disable head roll
+static const unsigned int gerandomeyeheadrollnop[6] = {0x000C4C80, 0x000C4C9C, 0x000C4CB8, 0x000C4CD4, 0x000C4CF0, 0x000C4D0C};
+static const unsigned int geheadrolloriginal[6] = {0xE450052C, 0xE4480530, 0xE4460534, 0xE4440538, 0xE452053C, 0xE4500540};
+
+typedef struct GE_HACK_PROFILE
+{
+	unsigned int readfiringrate;
+	unsigned int menupage;
+	unsigned int updateaimtarget;
+	unsigned int updateaimtargetjal;
+	unsigned int dronegunfiringrate;
+	unsigned int watchlaserweapon;
+	const unsigned int *codearray;
+	const unsigned int *headrollnop;
+} GE_HACK_PROFILE;
+
+static const GE_HACK_PROFILE geretailhackprofile =
+{
+	0x00092B1C, 0x8002A8C0, 0x0005F624, 0x0FC093E3,
+	0x0007DF88, 0x80032EA4, gecodearray, geheadrollnop
+};
+
+static const GE_HACK_PROFILE gerandomeyehackprofile =
+{
+	0x0009661C, 0x8002AA80, 0x000631E8, 0x0FC09973,
+	0x0008196C, 0x800330E4, gerandomeyecodearray, gerandomeyeheadrollnop
+};
+
+static BOOL IsRetailGoldenEyeUS(void)
+{
+	return
+	(
+		currentromoptions.crc1 == 0xDCBC50D1
+	&&	currentromoptions.crc2 == 0x09FD1AA3
+	&&	currentromoptions.countrycode == 0x45
+	);
+}
+
+static BOOL IsRandomEye(void)
+{
+	return currentromoptions.crc1 == GE_RANDOM_EYE_CRC1 && currentromoptions.crc2 == GE_RANDOM_EYE_CRC2;
+}
+
+static const GE_HACK_PROFILE *GEGetHackProfile(void)
+{
+	return IsRandomEye() ? &gerandomeyehackprofile : &geretailhackprofile;
+}
+
+static unsigned int GEReadROMWord(unsigned int offset)
+{
+	return *((unsigned int *)&gMemoryState.ROM_Image[offset]);
+}
+
+static void GEWriteROMWord(unsigned int offset, unsigned int value)
+{
+	gMemoryState.ROM_Image[offset] = value & 0xFF;
+	gMemoryState.ROM_Image[offset + 1] = (value >> 8) & 0xFF;
+	gMemoryState.ROM_Image[offset + 2] = (value >> 16) & 0xFF;
+	gMemoryState.ROM_Image[offset + 3] = (value >> 24) & 0xFF;
+}
 
 void GEFiringRateHack(void)
 {
 	int codeindex;
-	if((LOAD_UWORD_PARAM(GE_menupage) == 0 || LOAD_UWORD_PARAM(GE_menupage) > 10U) || gMemoryState.ROM_Image[GE_readfiringrate + 1] != 0x00) // if game isn't safe to patch or nop instruction doesn't exists
+	const GE_HACK_PROFILE *profile = GEGetHackProfile();
+	if(!IsRetailGoldenEyeUS() && !IsRandomEye())
+		return;
+	if((LOAD_UWORD_PARAM(profile->menupage) == 0 || LOAD_UWORD_PARAM(profile->menupage) > 10U) || GEReadROMWord(profile->readfiringrate) != 0x00000000) // if game isn't safe to patch or nop instruction doesn't exist
+		return;
+	if(GEReadROMWord(profile->updateaimtarget) != 0x27BDFFE8 || GEReadROMWord(profile->updateaimtarget + 0x30) != profile->updateaimtargetjal || GEReadROMWord(profile->dronegunfiringrate) != 0x250B0002)
 		return;
 	for(codeindex = 0; codeindex < 20; codeindex++)
+		GEWriteROMWord(profile->updateaimtarget + (codeindex * 4), profile->codearray[codeindex]); // apply camping guard 60fps fix
+	GEWriteROMWord(profile->readfiringrate, 0x00021040); // apply firing rate 60fps hack
+	GEWriteROMWord(profile->dronegunfiringrate, 0x250B0004); // make drone guns fire at half the rate
+	if(LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x20) == 0x03E8FF00 && LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x6C) == 0x00600F91) // if watch laser stats are default, fix for 60fps
 	{
-		gMemoryState.ROM_Image[GE_updateaimtarget + (codeindex * 4)] = gecodearray[codeindex] & 0xFF; // apply camping guard 60fps fix
-		gMemoryState.ROM_Image[GE_updateaimtarget + (codeindex * 4) + 1] = (gecodearray[codeindex] >> 8) & 0xFF;
-		gMemoryState.ROM_Image[GE_updateaimtarget + (codeindex * 4) + 2] = (gecodearray[codeindex] >> 16) & 0xFF;
-		gMemoryState.ROM_Image[GE_updateaimtarget + (codeindex * 4) + 3] = (gecodearray[codeindex] >> 24) & 0xFF;
-	}
-	gMemoryState.ROM_Image[GE_readfiringrate] = 0x00021040 & 0xFF; // apply firing rate 60fps hack
-	gMemoryState.ROM_Image[GE_readfiringrate + 1] = (0x00021040 >> 8) & 0xFF;
-	gMemoryState.ROM_Image[GE_readfiringrate + 2] = (0x00021040 >> 16) & 0xFF;
-	gMemoryState.ROM_Image[GE_readfiringrate + 3] = (0x00021040 >> 24) & 0xFF;
-	gMemoryState.ROM_Image[GE_dronegunfiringrate] = 0x250B0004 & 0xFF; // make drone guns fire at half the rate
-	gMemoryState.ROM_Image[GE_dronegunfiringrate + 1] = (0x250B0004 >> 8) & 0xFF;
-	gMemoryState.ROM_Image[GE_dronegunfiringrate + 2] = (0x250B0004 >> 16) & 0xFF;
-	gMemoryState.ROM_Image[GE_dronegunfiringrate + 3] = (0x250B0004 >> 24) & 0xFF;
-	if(LOAD_UWORD_PARAM(GE_watchlaserweapon + 0x20) == 0x03E8FF00 && LOAD_UWORD_PARAM(GE_watchlaserweapon + 0x6C) == 0x00600F91) // if watch laser stats are default, fix for 60fps
-	{
-		LOAD_UWORD_PARAM(GE_watchlaserweapon + 0x20) = 0x03E8FF02; // set firing rate to 2 frames
+		LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x20) = 0x03E8FF02; // set firing rate to 2 frames
 	}
 }
 
 void GEDisableHeadRoll(void)
 {
 	int index;
-	if((LOAD_UWORD_PARAM(GE_menupage) == 0 || LOAD_UWORD_PARAM(GE_menupage) > 10U) || gMemoryState.ROM_Image[geheadrollnop[0]] == 0x00) // if game isn't safe to patch or instructions have already been patched
+	const GE_HACK_PROFILE *profile = GEGetHackProfile();
+	if(!IsRetailGoldenEyeUS() && !IsRandomEye())
 		return;
-	for(index = 0; index < 6; index++) // disable head roll float save instructions in rom
+	if(LOAD_UWORD_PARAM(profile->menupage) == 0 || LOAD_UWORD_PARAM(profile->menupage) > 10U)
+		return;
+	for(index = 0; index < 6; index++)
 	{
-		gMemoryState.ROM_Image[geheadrollnop[index] + 0] = 0;
-		gMemoryState.ROM_Image[geheadrollnop[index] + 1] = 0;
-		gMemoryState.ROM_Image[geheadrollnop[index] + 2] = 0;
-		gMemoryState.ROM_Image[geheadrollnop[index] + 3] = 0;
+		if(GEReadROMWord(profile->headrollnop[index]) != geheadrolloriginal[index])
+			return;
 	}
+	for(index = 0; index < 6; index++) // disable head roll float save instructions in rom
+		GEWriteROMWord(profile->headrollnop[index], 0);
 }
 
 void PDTimingHack(void)
