@@ -1,0 +1,10 @@
+/build-vs2022/
+*.user
+*.suo
+*.z64
+*.n64
+*.v64
+*.sav
+*.eep
+*.fla
+*.sra

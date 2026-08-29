@@ -797,10 +797,38 @@ void InitTLB(void)
 
 void InitTLBOther(void)
 {
+	uint32	geGameRomOffset;
+	uint32	geScanOffset;
+	uint32	*geScanWords;
+
 	/* some TLB hacks to speed up some games, but fails at others */
 	trigger_tlb_exception_faster = FALSE;
 	if(emustatus.game_hack == GHACK_GE)
 	{
+		/*
+		 * Retail GoldenEye stores its 0x7f000000 game segment at ROM offset
+		 * 0x34b30 (NTSC) or 0x329f0 (PAL). Decompiled/relinked ROMs can move
+		 * this segment; Random-Eye-zer v1, for example, places it at 0x371a0.
+		 * Locate the segment by its startup signature instead of mapping the
+		 * retail offset unconditionally.
+		 */
+		geGameRomOffset = rominfo.TV_System == TV_SYSTEM_NTSC ? 0x34b30 : 0x329f0;
+		for(geScanOffset = 0x1000; geScanOffset + 16 <= gAllocationLength; geScanOffset += 4)
+		{
+			geScanWords = (uint32 *)&gMS_ROM_Image[geScanOffset];
+			if
+			(
+				geScanWords[0] == 0x3c013f80
+			&&	geScanWords[1] == 0x44810000
+			&&	geScanWords[2] == 0x2402ffff
+			&&	geScanWords[3] == 0x3c018003
+			)
+			{
+				geGameRomOffset = geScanOffset;
+				break;
+			}
+		}
+
 		/* Hack for golden eye, game still work without hack, but will be faster with hack */
 		if(rominfo.TV_System == TV_SYSTEM_NTSC)
 		{
@@ -808,10 +836,10 @@ void InitTLBOther(void)
 			uint32	i;
 			/*~~~~~~*/
 
-			for(i = 0; i < (gAllocationLength - 0x34b30) / 0x1000 && i < 0xFCB; i++)
+			for(i = 0; i < (gAllocationLength - geGameRomOffset) / 0x1000 && i < 0xFCB; i++)
 			{
-				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x90034b30 + i * 0x1000;
-				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[0x34b30 + i * 0x1000];
+				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x90000000 + geGameRomOffset + i * 0x1000;
+				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[geGameRomOffset + i * 0x1000];
 			}
 		}
 		else
@@ -820,10 +848,10 @@ void InitTLBOther(void)
 			uint32	i;
 			/*~~~~~~*/
 
-			for(i = 0; i < (gAllocationLength - 0x329f0) / 0x1000; i++)
+			for(i = 0; i < (gAllocationLength - geGameRomOffset) / 0x1000; i++)
 			{
-				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x900329f0 + i * 0x1000;
-				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[0x329f0 + i * 0x1000];
+				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x90000000 + geGameRomOffset + i * 0x1000;
+				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[geGameRomOffset + i * 0x1000];
 			}
 		}
 		trigger_tlb_exception_faster = TRUE;
