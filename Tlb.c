@@ -799,7 +799,17 @@ void InitTLBOther(void)
 {
 	/* some TLB hacks to speed up some games, but fails at others */
 	trigger_tlb_exception_faster = FALSE;
-	if(emustatus.game_hack == GHACK_GE)
+	/*
+	 * Random-Eye-zer is a relinked decomp ROM. Unlike retail GoldenEye, it
+	 * needs the TLB entries created by the game at runtime. Keep the existing
+	 * fast path for other GoldenEye builds and use the normal TLB path only
+	 * for the exact Random-Eye-zer v1 ROM header.
+	 */
+	if
+	(
+		emustatus.game_hack == GHACK_GE
+	&&	!(currentromoptions.crc1 == 0xB72EDF71 && currentromoptions.crc2 == 0xC22234D1 && currentromoptions.countrycode == 0x45)
+	)
 	{
 		/* Hack for golden eye, game still work without hack, but will be faster with hack */
 		if(rominfo.TV_System == TV_SYSTEM_NTSC)
