@@ -87,10 +87,10 @@ void r4300i_COP0_tlbp(uint32 Instruction)
 	{
 		/*
 		 * Not sure about here, if we should compare the all TLBHI_VPN2MASK, or need to
-		 * mask with TLB.MyHiMask £
+		 * mask with TLB.MyHiMask Â£
 		 * I think should just mask with TLBHI_VPN2MASK, not with TLB.MyHiMask according
-		 * to r4300i manual £
-		 * But doing this, some game will give errors of TLBP lookup fail. £
+		 * to r4300i manual Â£
+		 * But doing this, some game will give errors of TLBP lookup fail. Â£
 		 * if( ( (gMS_TLB[index].EntryHi & TLBHI_VPN2MASK) == (gHWS_COP0Reg[ENTRYHI] &
 		 * TLBHI_VPN2MASK) ) &&
 		 */
@@ -193,7 +193,7 @@ void tlb_write_entry(int index)
 
 	/*
 	 * according to TLB comparasion, it is OK to have only EntryLo0 or EntryLo1 valid,
-	 * not both of them £
+	 * not both of them Â£
 	 * yes, still need in Direct TLB lookup
 	 */
 	if((gHWS_COP0Reg[ENTRYLO1] & TLBLO_V) || (gHWS_COP0Reg[ENTRYLO0] & TLBLO_V)) theTLB->valid = 1;
@@ -205,9 +205,9 @@ void tlb_write_entry(int index)
 
 	/*
 	 * theTLB->EntryHi = gHWS_COP0Reg[ENTRYHI]; // This EntryHi should just copy from
-	 * the ENTRYHI register £
+	 * the ENTRYHI register Â£
 	 * we will not store the g bit in the EntryHi, but keep them in EntryLo0 and
-	 * EntryLo1 £
+	 * EntryLo1 Â£
 	 * theTLB->EntryHi = (gHWS_COP0Reg[ENTRYHI] & (~(uint32)gHWS_COP0Reg[PAGEMASK])) |
 	 * (gHWS_COP0Reg[PAGEMASK]&TLBHI_PIDMASK);
 	 */
@@ -348,10 +348,10 @@ uint32 RedoTLBLookupAfterException(uint32 address, int operation)
 		theTLB = &gMS_TLB[c];
 
 		/*
-		 * skip unused entries £
-		 * if (theTLB->valid == 0) continue; £
-		 * if ( ((theTLB->EntryLo0 | theTLB->EntryLo1)) == 0) continue; £
-		 * compare upper bits £
+		 * skip unused entries Â£
+		 * if (theTLB->valid == 0) continue; Â£
+		 * if ( ((theTLB->EntryLo0 | theTLB->EntryLo1)) == 0) continue; Â£
+		 * compare upper bits Â£
 		 * if ((address & theTLB->MyHiMask & 0x1FFFFFFF) == (theTLB->EntryHi &
 		 * theTLB->MyHiMask & 0x1FFFFFFF))
 		 */
@@ -441,15 +441,15 @@ uint32 TranslateTLBAddress(uint32 address, int operation)
 			theTLB = &gMS_TLB[c - maxtlb];
 
 		/*
-		 * skip unused entries £
-		 * if (theTLB->valid == 0) continue; £
+		 * skip unused entries Â£
+		 * if (theTLB->valid == 0) continue; Â£
 		 * if ( ((theTLB->EntryLo0 | theTLB->EntryLo1) & TLBLO_V ) == 0) continue; // Skip
-		 * this entry if both EntroLo0 and EntryLo1 are invalid £
-		 * compare upper bits £
-		 * This is a unreasonable hack, I should not use this 0x1FFFFFFF mask, but £
+		 * this entry if both EntroLo0 and EntryLo1 are invalid Â£
+		 * compare upper bits Â£
+		 * This is a unreasonable hack, I should not use this 0x1FFFFFFF mask, but Â£
 		 * I cannot find the bugs in dyna, without this mask, many games will not work
-		 * well £
-		 * games like Snowboard Kids 2 £
+		 * well Â£
+		 * games like Snowboard Kids 2 Â£
 		 * if ((address & theTLB->MyHiMask &0x1FFFFFFF ) == (theTLB->EntryHi &
 		 * theTLB->MyHiMask & 0x1FFFFFFF))
 		 */
@@ -520,7 +520,7 @@ uint32 TranslateTLBAddress(uint32 address, int operation)
 	}
 
 	/*
-	 * hack for golden eye £
+	 * hack for golden eye Â£
 	 * if( strncmp(currentromoptions.Game_Name, "GOLDENEYE", 9) == 0 &&
 	 * (address&0xFF000000) == 0x7F000000 ) { if( rominfo.TV_System == TV_SYSTEM_NTSC
 	 * ) { uint32 i; for( i=0; i<(gAllocationLength - 0x34b30)/0x1000; i++) {
@@ -597,15 +597,15 @@ uint32 Trigger_TLB_Refill_Exception(uint32 address, int operation)
 			SET_EXCEPTION(TLBL_Miss) newtlb = FALSE;
 
 	/*
-	 * Test the TLB refill service vector £
-	 * Hack for Turok: Rage War and for NFL QBC: 2000, donno why I need this £
-	 * For the TLB service vector here, it is tricky. £
+	 * Test the TLB refill service vector Â£
+	 * Hack for Turok: Rage War and for NFL QBC: 2000, donno why I need this Â£
+	 * For the TLB service vector here, it is tricky. Â£
 	 * I should use 0x80000000 to serve TLB_Refill for 32bit TLB, and use 0x80000080
-	 * to serve £
-	 * 64bit TLB. I believe I should use 0x80000000 for most of games, £
+	 * to serve Â£
+	 * 64bit TLB. I believe I should use 0x80000000 for most of games, Â£
 	 * Somehow, Golden Eye only work if I use 0x80000000, while Turok 2 only work if I
-	 * use £
-	 * 0x80000080, do I need to check the status register to decide the vector? £
+	 * use Â£
+	 * 0x80000080, do I need to check the status register to decide the vector? Â£
 	 * if( TLB_Refill_Exception_Vector != 0x80000000 )
 	 */
 	{
@@ -643,7 +643,7 @@ step2:
 
 	if(operation == TLB_INST)
 	{					/* here we have got a TLB error at compiling, need to invalidate the compiled block
-						 * £
+						 * Â£
 						 * and serve the TLB error */
 		ITLB_Error = TRUE;
 		TLB_Error_Vector = TLB_Refill_Exception_Vector;
@@ -715,7 +715,7 @@ uint32 Trigger_TLB_Invalid_Exception(uint32 address, int operation)
 
 	if(operation == TLB_INST)
 	{					/* here we have got a TLB error at compiling, need to invalidate the compiled block
-						 * £
+						 * Â£
 						 * and serve the TLB error */
 		ITLB_Error = TRUE;
 		TLB_Error_Vector = 0x80000180;
@@ -797,20 +797,38 @@ void InitTLB(void)
 
 void InitTLBOther(void)
 {
+	uint32	geGameRomOffset;
+	uint32	geScanOffset;
+	uint32	*geScanWords;
+
 	/* some TLB hacks to speed up some games, but fails at others */
 	trigger_tlb_exception_faster = FALSE;
-	/*
-	 * Random-Eye-zer is a relinked decomp ROM. Unlike retail GoldenEye, it
-	 * needs the TLB entries created by the game at runtime. Keep the existing
-	 * fast path for other GoldenEye builds and use the normal TLB path only
-	 * for the exact Random-Eye-zer v1 ROM header.
-	 */
-	if
-	(
-		emustatus.game_hack == GHACK_GE
-	&&	!(currentromoptions.crc1 == 0xB72EDF71 && currentromoptions.crc2 == 0xC22234D1 && currentromoptions.countrycode == 0x45)
-	)
+	if(emustatus.game_hack == GHACK_GE)
 	{
+		/*
+		 * Retail GoldenEye stores its 0x7f000000 game segment at ROM offset
+		 * 0x34b30 (NTSC) or 0x329f0 (PAL). Decompiled/relinked ROMs can move
+		 * this segment; Random-Eye-zer v1, for example, places it at 0x371a0.
+		 * Locate the segment by its startup signature instead of mapping the
+		 * retail offset unconditionally.
+		 */
+		geGameRomOffset = rominfo.TV_System == TV_SYSTEM_NTSC ? 0x34b30 : 0x329f0;
+		for(geScanOffset = 0x1000; geScanOffset + 16 <= gAllocationLength; geScanOffset += 4)
+		{
+			geScanWords = (uint32 *)&gMS_ROM_Image[geScanOffset];
+			if
+			(
+				geScanWords[0] == 0x3c013f80
+			&&	geScanWords[1] == 0x44810000
+			&&	geScanWords[2] == 0x2402ffff
+			&&	geScanWords[3] == 0x3c018003
+			)
+			{
+				geGameRomOffset = geScanOffset;
+				break;
+			}
+		}
+
 		/* Hack for golden eye, game still work without hack, but will be faster with hack */
 		if(rominfo.TV_System == TV_SYSTEM_NTSC)
 		{
@@ -818,10 +836,10 @@ void InitTLBOther(void)
 			uint32	i;
 			/*~~~~~~*/
 
-			for(i = 0; i < (gAllocationLength - 0x34b30) / 0x1000 && i < 0xFCB; i++)
+			for(i = 0; i < (gAllocationLength - geGameRomOffset) / 0x1000 && i < 0xFCB; i++)
 			{
-				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x90034b30 + i * 0x1000;
-				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[0x34b30 + i * 0x1000];
+				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x90000000 + geGameRomOffset + i * 0x1000;
+				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[geGameRomOffset + i * 0x1000];
 			}
 		}
 		else
@@ -830,10 +848,10 @@ void InitTLBOther(void)
 			uint32	i;
 			/*~~~~~~*/
 
-			for(i = 0; i < (gAllocationLength - 0x329f0) / 0x1000; i++)
+			for(i = 0; i < (gAllocationLength - geGameRomOffset) / 0x1000; i++)
 			{
-				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x900329f0 + i * 0x1000;
-				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[0x329f0 + i * 0x1000];
+				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x90000000 + geGameRomOffset + i * 0x1000;
+				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[geGameRomOffset + i * 0x1000];
 			}
 		}
 		trigger_tlb_exception_faster = TRUE;
@@ -1086,16 +1104,16 @@ uint32 Direct_TLB_Lookup(uint32 address, int operation)
 		else if(trigger_tlb_exception_faster)
 		{
 			/*
-			 * if( realAddress == DUMMYDIRECTTLBVALUE ) £
+			 * if( realAddress == DUMMYDIRECTTLBVALUE ) Â£
 			 * {
 			 */
 			return Trigger_TLB_Refill_Exception(address, operation);
 
 			/*
-			 * } £
-			 * else £
-			 * { £
-			 * return Trigger_TLB_Invalid_Exception(address, operation); £
+			 * } Â£
+			 * else Â£
+			 * { Â£
+			 * return Trigger_TLB_Invalid_Exception(address, operation); Â£
 			 * }
 			 */
 		}
@@ -1118,11 +1136,11 @@ void Refresh_Direct_TLB_Lookup_Table(int index)
 {
 	/*
 	 * This function need optimized otherwise it will be slow, I hope games are using
-	 * TLB, but not £
+	 * TLB, but not Â£
 	 * change TLB all the time. At least games should not change the TLB in used all
-	 * the time while £
-	 * leave the TLB entries not in used untouched forever. £
-	 * But I know some games are just constantly used only a few TLB £
+	 * the time while Â£
+	 * leave the TLB entries not in used untouched forever. Â£
+	 * But I know some games are just constantly used only a few TLB Â£
 	 * TLB_TRACE(TRACE0("Refresh Direct TLB Lookup Table"))
 	 */
 	if(index > NTLBENTRIES)
@@ -1159,7 +1177,7 @@ void Refresh_Direct_TLB_Lookup_Table(int index)
 
 		/*
 		 * case3: If the old TLB is invalid, and the new TLB is valid, do something,
-		 * without checking £
+		 * without checking Â£
 		 * other TLB entries
 		 */
 		if(old_valid == 0 /* And the new is valid */ )
@@ -1193,15 +1211,15 @@ void Refresh_Direct_TLB_Lookup_Table(int index)
 
 		/*
 		 * For the case 4 and case 5, the easiest way is to write the new content and
-		 * refresh the whole £
-		 * TLB lookup table, this will be a little slower £
+		 * refresh the whole Â£
+		 * TLB lookup table, this will be a little slower Â£
 		 * If I can do better, I prefer to exam the conflict TLB entries, and modify the
-		 * TLB Lookup £
-		 * table only if needed £
-		 * here is the easiest solution £
-		 * 1. Write new TLB into TLB table (not Direct TLB Lookup Table) £
-		 * tlb_write_entry(index); £
-		 * 2. Refresh the whole Direct TLB Lookup Table £
+		 * TLB Lookup Â£
+		 * table only if needed Â£
+		 * here is the easiest solution Â£
+		 * 1. Write new TLB into TLB table (not Direct TLB Lookup Table) Â£
+		 * tlb_write_entry(index); Â£
+		 * 2. Refresh the whole Direct TLB Lookup Table Â£
 		 * Build_Whole_Direct_TLB_Lookup_Table();
 		 */
 	}
@@ -1239,7 +1257,7 @@ void Build_Direct_TLB_Lookup_Table(int index, BOOL tobuild)
 		realAddress = 0x80000000;
 
 		/*
-		 * realAddress |= ((EntryLo << 6) & ((theTLB->MyHiMask) >> 1)); £
+		 * realAddress |= ((EntryLo << 6) & ((theTLB->MyHiMask) >> 1)); Â£
 		 * realAddress |= (address & ((theTLB->PageMask | 0x00001FFF) >> 1));
 		 */
 		realAddress |= ((theTLB->EntryLo0 << 6) & ((theTLB->MyHiMask) >> 1));
@@ -1405,7 +1423,7 @@ void Build_Whole_Direct_TLB_Lookup_Table(void)
 	/*~~*/
 
 	/*
-	 * Clean the whole table first £
+	 * Clean the whole table first Â£
 	 * memset(&Direct_TLB_Lookup_Table[0], 0xFF, sizeof(Direct_TLB_Lookup_Table));
 	 */
 	for(i = 0; i < 0x100000; i++)
