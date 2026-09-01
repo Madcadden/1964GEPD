@@ -756,6 +756,54 @@ uint32 Trigger_TLB_Invalid_Exception(uint32 address, int operation)
  */
 void InitTLBOther(void);
 
+/*
+ * GoldenEye normally maps its 0x7f000000 game segment directly from ROM.
+ * Mods built from the decomp can relocate that segment, so only install the
+ * fast map when its startup sequence identifies one unambiguous ROM offset.
+ * If it cannot be resolved safely, the normal runtime TLB path is left alone.
+ */
+static BOOL GEIsGameSegmentStart(uint32 offset)
+{
+	uint32 *words;
+
+	if(offset > gAllocationLength || gAllocationLength - offset < 20)
+		return FALSE;
+
+	words = (uint32 *)&gMS_ROM_Image[offset];
+	return
+	(
+		words[0] == 0x3c013f80
+	&&	words[1] == 0x44810000
+	&&	words[2] == 0x2402ffff
+	&&	(words[3] & 0xffff0000) == 0x3c010000
+	&&	(words[4] & 0xffff0000) == 0xac220000
+	);
+}
+
+static BOOL GEFindGameSegment(uint32 *gameRomOffset)
+{
+	uint32 offset;
+	uint32 matchOffset = 0;
+	uint32 matchCount = 0;
+
+	for(offset = 0x1000; offset <= gAllocationLength && gAllocationLength - offset >= 20; offset += 4)
+	{
+		if(GEIsGameSegmentStart(offset))
+		{
+			matchOffset = offset;
+			matchCount++;
+			if(matchCount > 1)
+				return FALSE;
+		}
+	}
+
+	if(matchCount != 1)
+		return FALSE;
+
+	*gameRomOffset = matchOffset;
+	return TRUE;
+}
+
 void InitTLB(void)
 {
 	/*~~*/
@@ -798,61 +846,24 @@ void InitTLB(void)
 void InitTLBOther(void)
 {
 	uint32	geGameRomOffset;
-	uint32	geScanOffset;
-	uint32	*geScanWords;
+	uint32	gePageCount;
+	uint32	i;
 
 	/* some TLB hacks to speed up some games, but fails at others */
 	trigger_tlb_exception_faster = FALSE;
-	if(emustatus.game_hack == GHACK_GE)
+	if(emustatus.game_hack == GHACK_GE && GEFindGameSegment(&geGameRomOffset))
 	{
-		/*
-		 * Retail GoldenEye stores its 0x7f000000 game segment at ROM offset
-		 * 0x34b30 (NTSC) or 0x329f0 (PAL). Decompiled/relinked ROMs can move
-		 * this segment; Random-Eye-zer v1, for example, places it at 0x371a0.
-		 * Locate the segment by its startup signature instead of mapping the
-		 * retail offset unconditionally.
-		 */
-		geGameRomOffset = rominfo.TV_System == TV_SYSTEM_NTSC ? 0x34b30 : 0x329f0;
-		for(geScanOffset = 0x1000; geScanOffset + 16 <= gAllocationLength; geScanOffset += 4)
-		{
-			geScanWords = (uint32 *)&gMS_ROM_Image[geScanOffset];
-			if
-			(
-				geScanWords[0] == 0x3c013f80
-			&&	geScanWords[1] == 0x44810000
-			&&	geScanWords[2] == 0x2402ffff
-			&&	geScanWords[3] == 0x3c018003
-			)
-			{
-				geGameRomOffset = geScanOffset;
-				break;
-			}
-		}
-
 		/* Hack for golden eye, game still work without hack, but will be faster with hack */
-		if(rominfo.TV_System == TV_SYSTEM_NTSC)
-		{
-			/*~~~~~~*/
-			uint32	i;
-			/*~~~~~~*/
+		gePageCount = (gAllocationLength - geGameRomOffset) / 0x1000;
+		if(rominfo.TV_System == TV_SYSTEM_NTSC && gePageCount > 0xFCB)
+			gePageCount = 0xFCB;
+		if(gePageCount > 0x100000 - 0x7f000)
+			gePageCount = 0x100000 - 0x7f000;
 
-			for(i = 0; i < (gAllocationLength - geGameRomOffset) / 0x1000 && i < 0xFCB; i++)
-			{
-				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x90000000 + geGameRomOffset + i * 0x1000;
-				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[geGameRomOffset + i * 0x1000];
-			}
-		}
-		else
+		for(i = 0; i < gePageCount; i++)
 		{
-			/*~~~~~~*/
-			uint32	i;
-			/*~~~~~~*/
-
-			for(i = 0; i < (gAllocationLength - geGameRomOffset) / 0x1000; i++)
-			{
-				Direct_TLB_Lookup_Table[0x7f000 + i] = 0x90000000 + geGameRomOffset + i * 0x1000;
-				TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[geGameRomOffset + i * 0x1000];
-			}
+			Direct_TLB_Lookup_Table[0x7f000 + i] = 0x90000000 + geGameRomOffset + i * 0x1000;
+			TLB_sDWORD_R[0x7f000 + i] = &gMS_ROM_Image[geGameRomOffset + i * 0x1000];
 		}
 		trigger_tlb_exception_faster = TRUE;
 	}

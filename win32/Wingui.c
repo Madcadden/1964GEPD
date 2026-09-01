@@ -539,7 +539,7 @@ HWND InitWin98UI(HANDLE hInstance, int nCmdShow)
 	wc.hInstance = (HINSTANCE) hInstance;
 	wc.hIcon = LoadIcon((HINSTANCE) hInstance, MAKEINTRESOURCE(IDI_ICON2));
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.hbrBackground = (HBRUSH) GetStockObject(BLACK_BRUSH);	/* hBrush; */
+	wc.hbrBackground = GetSysColorBrush(COLOR_BTNFACE);	/* hBrush; */
 	wc.lpszMenuName = "WINGUI_MENU";
 
 	wc.lpszClassName = "WinGui";
@@ -3003,14 +3003,6 @@ void SetCounterFactor(int factor)
  =======================================================================================================================
  */
 
-#define GE_RANDOM_EYE_CRC1 0xB72EDF71
-#define GE_RANDOM_EYE_CRC2 0xC22234D1
-#define GE_STEREO_SFX_CRC1 0xFDAD2423
-#define GE_STEREO_SFX_CRC2 0x85FBF3E4
-#define GE_RICKROLL_EYE_CRC1 0xDE3A53EA
-#define GE_RICKROLL_EYE_CRC2 0x07678D07
-#define GE_TND64_CRC1 0x7AC67E38
-#define GE_TND64_CRC2 0x921CFA97
 #define PD_frameratecal 0x80014388 // location of function that returns when to draw at 60fps (thank you Ryan Dwyer for the code and single-handedly decompiling PD - you absolute legend)
 #define PD_masterclock 0x8038CECC // location of master clock code (TLB'd to 7F)
 #define PD_updateaimtarget 0x8025A7C8 // location of AI function to update aim target (TLB'd to 7F)
@@ -3019,115 +3011,30 @@ void SetCounterFactor(int factor)
 
 static const unsigned int pdcodearray[42] = {0x3C028006, 0x8C42EE10, 0x240E0007, 0x51C2000E, 0x3C02800A, 0x3C02800B, 0x8042CB97, 0x304E0080, 0x15C00017, 0x304E0040, 0x11C00012, 0x3C02800A, 0x8C42A424, 0x14400012, 0x00000000, 0x10000010, 0x00129040, 0x00000000, 0x804221D3, 0x30420040, 0x10400007, 0x00000000, 0x3C02800A, 0x8C42A424, 0x14400007, 0x00000000, 0x10000005, 0x00129040, 0x3C02800A, 0x8C42A424, 0x54400001, 0x00129040, 0x0BC5B3B5, 0x3631EBC2, 0x8DCE0020, 0x85CF0014, 0x85D80016, 0x15F80002, 0x27180001, 0xA5D80016, 0x0BC0C495, 0xAC860050}; // hijack timing code to allow combat boost at 60fps and fix camping guards at 60fps
 static const unsigned int gecodearray[20] = {0x27BDFFE8, 0x808E0007, 0x24010008, 0x00001025, 0x15C1000D, 0x8C8F004C, 0x31F80060, 0x1300000A, 0x8C8E001C, 0x85CF0030, 0x85D80032, 0x15F80002, 0x27180001, 0xA5D80032, 0xAC85004C, 0x0FC093E3, 0xAC860050, 0x34020001, 0x0BC0D71E, 0x27BD0018}; // fix camping guards at 60fps
-static const unsigned int gerandomeyecodearray[20] = {0x27BDFFE8, 0x808E0007, 0x24010008, 0x00001025, 0x15C1000D, 0x8C8F004C, 0x31F80060, 0x1300000A, 0x8C8E001C, 0x85CF0030, 0x85D80032, 0x15F80002, 0x27180001, 0xA5D80032, 0xAC85004C, 0x0FC09973, 0xAC860050, 0x34020001, 0x0BC0DB3E, 0x27BD0018}; // RandomEye relocation of the GE guard fix
-static const unsigned int geheadrollnop[6] = {0x000C2B60, 0x000C2B7C, 0x000C2B98, 0x000C2BB4, 0x000C2BD0, 0x000C2BEC}; // head roll float save instructions in rom, nop to disable head roll
-static const unsigned int gerandomeyeheadrollnop[6] = {0x000C4C80, 0x000C4C9C, 0x000C4CB8, 0x000C4CD4, 0x000C4CF0, 0x000C4D0C};
-static const unsigned int gestereosfxheadrollnop[6] = {0x000C2D30, 0x000C2D4C, 0x000C2D68, 0x000C2D84, 0x000C2DA0, 0x000C2DBC};
 static const unsigned int geheadrolloriginal[6] = {0xE450052C, 0xE4480530, 0xE4460534, 0xE4440538, 0xE452053C, 0xE4500540};
 
-typedef struct GE_HACK_PROFILE
+typedef struct GE_HACK_RESOLUTION
 {
 	unsigned int readfiringrate;
-	unsigned int menupage;
 	unsigned int updateaimtarget;
 	unsigned int updateaimtargetjal;
+	unsigned int updateaimtargetreturn;
 	unsigned int dronegunfiringrate;
-	unsigned int watchlaserweapon;
-	const unsigned int *codearray;
-	const unsigned int *headrollnop;
-} GE_HACK_PROFILE;
+	unsigned int headrollnop[6];
+	BOOL firingvalid;
+	BOOL headrollvalid;
+} GE_HACK_RESOLUTION;
 
-static const GE_HACK_PROFILE geretailhackprofile =
-{
-	0x00092B1C, 0x8002A8C0, 0x0005F624, 0x0FC093E3,
-	0x0007DF88, 0x80032EA4, gecodearray, geheadrollnop
-};
-
-static const GE_HACK_PROFILE gerandomeyehackprofile =
-{
-	0x0009661C, 0x8002AA80, 0x000631E8, 0x0FC09973,
-	0x0008196C, 0x800330E4, gerandomeyecodearray, gerandomeyeheadrollnop
-};
-
-static const GE_HACK_PROFILE gestereosfxhackprofile =
-{
-	0x00092CEC, 0x8002A8C0, 0x0005F624, 0x0FC093E3,
-	0x0007DF88, 0x80032EA4, gecodearray, gestereosfxheadrollnop
-};
-
-static const GE_HACK_PROFILE gerickrolleyehackprofile =
-{
-	0x00092B1C, 0x8002A8C0, 0x0005F624, 0x0FC093E3,
-	0x0007DF88, 0x80032EA4, gecodearray, geheadrollnop
-};
-
-static const GE_HACK_PROFILE getnd64hackprofile =
-{
-	0x00092B1C, 0x8002A8C0, 0x0005F624, 0x0FC093E3,
-	0x0007DF88, 0x80032EA4, gecodearray, geheadrollnop
-};
-
-static BOOL IsRetailGoldenEyeUS(void)
-{
-	return
-	(
-		currentromoptions.crc1 == 0xDCBC50D1
-	&&	currentromoptions.crc2 == 0x09FD1AA3
-	&&	currentromoptions.countrycode == 0x45
-	);
-}
-
-static BOOL IsRandomEye(void)
-{
-	return currentromoptions.crc1 == GE_RANDOM_EYE_CRC1 && currentromoptions.crc2 == GE_RANDOM_EYE_CRC2;
-}
-
-static BOOL IsStereoSFX(void)
-{
-	return
-	(
-		currentromoptions.crc1 == GE_STEREO_SFX_CRC1
-	&&	currentromoptions.crc2 == GE_STEREO_SFX_CRC2
-	&&	currentromoptions.countrycode == 0x45
-	);
-}
-
-static BOOL IsRickRollEye(void)
-{
-	return
-	(
-		currentromoptions.crc1 == GE_RICKROLL_EYE_CRC1
-	&&	currentromoptions.crc2 == GE_RICKROLL_EYE_CRC2
-	&&	currentromoptions.countrycode == 0x45
-	);
-}
-
-static BOOL IsTND64(void)
-{
-	return
-	(
-		currentromoptions.crc1 == GE_TND64_CRC1
-	&&	currentromoptions.crc2 == GE_TND64_CRC2
-	&&	currentromoptions.countrycode == 0x45
-	);
-}
-
-static const GE_HACK_PROFILE *GEGetHackProfile(void)
-{
-	if(IsRandomEye())
-		return &gerandomeyehackprofile;
-
-	if(IsStereoSFX())
-		return &gestereosfxhackprofile;
-
-	if(IsRickRollEye())
-		return &gerickrolleyehackprofile;
-
-	if(IsTND64())
-		return &getnd64hackprofile;
-
-	return &geretailhackprofile;
-}
+static const unsigned int gegamesegmentpattern[5] = {0x3C013F80, 0x44810000, 0x2402FFFF, 0x3C010000, 0xAC220000};
+static const unsigned int gegamesegmentmask[5] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000};
+static const unsigned int geupdateaimtargetpattern[20] = {0x27BDFFE8, 0xAFBF0014, 0x808E0007, 0x24010008, 0x00001025, 0x15C1000A, 0x00000000, 0x8C8F004C, 0x31F80060, 0x13000006, 0x00000000, 0xAC85004C, 0x0C000000, 0xAC860050, 0x10000001, 0x24020001, 0x8FBF0014, 0x27BD0018, 0x03E00008, 0x00000000};
+static const unsigned int geupdateaimtargetmask[20] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+static const unsigned int gefiringratepattern[9] = {0x8FBF0014, 0x80420022, 0x27BD0018, 0x03E00008, 0x00000000, 0x27BDFFE8, 0xAFBF0014, 0x0C000000, 0x00000000};
+static const unsigned int gefiringratemask[9] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF};
+static const unsigned int gedronepattern[5] = {0x250B0002, 0xAE0B00C0, 0x8FAF013C, 0x8FA90138, 0x24190001};
+static const unsigned int geexactmask5[5] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+static const unsigned int gecontinuationpattern[8] = {0x10400007, 0x02C02025, 0x02402825, 0x0C000000, 0x92260005, 0x00409025, 0x1000FE3E, 0x02C28821};
+static const unsigned int gecontinuationmask[8] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
 
 static unsigned int GEReadROMWord(unsigned int offset)
 {
@@ -3142,55 +3049,205 @@ static void GEWriteROMWord(unsigned int offset, unsigned int value)
 	gMemoryState.ROM_Image[offset + 3] = (value >> 24) & 0xFF;
 }
 
+static BOOL GEPatternMatches(unsigned int offset, const unsigned int *pattern, const unsigned int *mask, unsigned int wordcount)
+{
+	unsigned int index;
+	unsigned int bytecount = wordcount * 4;
+
+	if(offset > gAllocationLength || bytecount > gAllocationLength - offset)
+		return FALSE;
+
+	for(index = 0; index < wordcount; index++)
+	{
+		if((GEReadROMWord(offset + index * 4) & mask[index]) != (pattern[index] & mask[index]))
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
+static unsigned int GEFindUniqueROMPattern(const unsigned int *pattern, const unsigned int *mask, unsigned int wordcount)
+{
+	unsigned int offset;
+	unsigned int match = 0;
+	unsigned int bytecount = wordcount * 4;
+
+	if(gAllocationLength < bytecount)
+		return 0;
+
+	for(offset = 0x1000; offset <= gAllocationLength - bytecount; offset += 4)
+	{
+		if(GEPatternMatches(offset, pattern, mask, wordcount))
+		{
+			if(match != 0)
+				return 0;
+			match = offset;
+		}
+	}
+
+	return match;
+}
+
+static BOOL GEFindHeadRoll(unsigned int *offsets)
+{
+	unsigned int offset;
+	unsigned int index;
+	unsigned int match = 0;
+	BOOL valid;
+
+	if(gAllocationLength < 5 * 0x1C + 4)
+		return FALSE;
+
+	for(offset = 0x1000; offset <= gAllocationLength - (5 * 0x1C + 4); offset += 4)
+	{
+		if(GEReadROMWord(offset) != geheadrolloriginal[0])
+			continue;
+
+		valid = TRUE;
+		for(index = 1; index < 6; index++)
+		{
+			if(GEReadROMWord(offset + index * 0x1C) != geheadrolloriginal[index])
+			{
+				valid = FALSE;
+				break;
+			}
+		}
+
+		if(valid)
+		{
+			if(match != 0)
+				return FALSE;
+			match = offset;
+		}
+	}
+
+	if(match == 0)
+		return FALSE;
+
+	for(index = 0; index < 6; index++)
+		offsets[index] = match + index * 0x1C;
+	return TRUE;
+}
+
+static const GE_HACK_RESOLUTION *GEGetHackResolution(void)
+{
+	static GE_HACK_RESOLUTION resolution;
+	static unsigned int cachedcrc1 = 0;
+	static unsigned int cachedcrc2 = 0;
+	static unsigned int cachedcountry = 0;
+	static BOOL initialized = FALSE;
+	unsigned int gameSegment;
+	unsigned int updateAimTarget;
+	unsigned int firingRateContext;
+	unsigned int droneFiringRate;
+	unsigned int continuation;
+	unsigned int continuationDelta;
+	unsigned int continuationAddress;
+
+	if(initialized && cachedcrc1 == currentromoptions.crc1 && cachedcrc2 == currentromoptions.crc2 && cachedcountry == currentromoptions.countrycode)
+		return &resolution;
+
+	memset(&resolution, 0, sizeof(resolution));
+	initialized = TRUE;
+	cachedcrc1 = currentromoptions.crc1;
+	cachedcrc2 = currentromoptions.crc2;
+	cachedcountry = currentromoptions.countrycode;
+
+	gameSegment = GEFindUniqueROMPattern(gegamesegmentpattern, gegamesegmentmask, 5);
+	updateAimTarget = GEFindUniqueROMPattern(geupdateaimtargetpattern, geupdateaimtargetmask, 20);
+	firingRateContext = GEFindUniqueROMPattern(gefiringratepattern, gefiringratemask, 9);
+	droneFiringRate = GEFindUniqueROMPattern(gedronepattern, geexactmask5, 5);
+	continuation = GEFindUniqueROMPattern(gecontinuationpattern, gecontinuationmask, 8);
+
+	if(gameSegment != 0 && updateAimTarget != 0 && firingRateContext != 0 && droneFiringRate != 0 && continuation >= gameSegment)
+	{
+		continuationDelta = continuation - gameSegment;
+		continuationAddress = 0x7F000000 + continuationDelta;
+		resolution.updateaimtargetjal = GEReadROMWord(updateAimTarget + 0x30);
+		if((resolution.updateaimtargetjal & 0xFC000000) == 0x0C000000 && continuationDelta < 0x01000000)
+		{
+			resolution.readfiringrate = firingRateContext + 0x10;
+			resolution.updateaimtarget = updateAimTarget;
+			resolution.updateaimtargetreturn = 0x08000000 | ((continuationAddress >> 2) & 0x03FFFFFF);
+			resolution.dronegunfiringrate = droneFiringRate;
+			resolution.firingvalid = TRUE;
+		}
+	}
+
+	resolution.headrollvalid = GEFindHeadRoll(resolution.headrollnop);
+	return &resolution;
+}
+
+static void GEPatchWatchLaserWeapon(void)
+{
+	unsigned int address;
+	unsigned int match = 0;
+
+	for(address = 0x80020000; address <= 0x8007FF90; address += 4)
+	{
+		if(LOAD_UWORD_PARAM(address + 0x20) == 0x03E8FF00 && LOAD_UWORD_PARAM(address + 0x6C) == 0x00600F91)
+		{
+			if(match != 0)
+				return;
+			match = address;
+		}
+	}
+
+	if(match != 0)
+		LOAD_UWORD_PARAM(match + 0x20) = 0x03E8FF02;
+}
+
 void GEFiringRateHack(void)
 {
 	int codeindex;
-	const GE_HACK_PROFILE *profile = GEGetHackProfile();
+	unsigned int code;
+	const GE_HACK_RESOLUTION *resolution = GEGetHackResolution();
 
-	if(!IsRetailGoldenEyeUS() && !IsRandomEye() && !IsStereoSFX() && !IsRickRollEye() && !IsTND64())
+	if(!resolution->firingvalid)
 		return;
 
-	if((LOAD_UWORD_PARAM(profile->menupage) == 0 || LOAD_UWORD_PARAM(profile->menupage) > 10U) ||
-		GEReadROMWord(profile->readfiringrate) != 0x00000000)
-		return;
-
-	if(GEReadROMWord(profile->updateaimtarget) != 0x27BDFFE8 ||
-		GEReadROMWord(profile->updateaimtarget + 0x30) != profile->updateaimtargetjal ||
-		GEReadROMWord(profile->dronegunfiringrate) != 0x250B0002)
-		return;
-
-	for(codeindex = 0; codeindex < 20; codeindex++)
-		GEWriteROMWord(profile->updateaimtarget + (codeindex * 4), profile->codearray[codeindex]);
-
-	GEWriteROMWord(profile->readfiringrate, 0x00021040);
-	GEWriteROMWord(profile->dronegunfiringrate, 0x250B0004);
-
-	if(LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x20) == 0x03E8FF00 &&
-		LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x6C) == 0x00600F91)
+	if(GEReadROMWord(resolution->readfiringrate) == 0x00000000)
 	{
-		LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x20) = 0x03E8FF02;
+		if(GEReadROMWord(resolution->updateaimtarget) != 0x27BDFFE8 ||
+			GEReadROMWord(resolution->updateaimtarget + 0x30) != resolution->updateaimtargetjal ||
+			GEReadROMWord(resolution->dronegunfiringrate) != 0x250B0002)
+			return;
+
+		for(codeindex = 0; codeindex < 20; codeindex++)
+		{
+			code = gecodearray[codeindex];
+			if(codeindex == 15)
+				code = resolution->updateaimtargetjal;
+			else if(codeindex == 18)
+				code = resolution->updateaimtargetreturn;
+			GEWriteROMWord(resolution->updateaimtarget + (codeindex * 4), code);
+		}
+
+		GEWriteROMWord(resolution->readfiringrate, 0x00021040);
+		GEWriteROMWord(resolution->dronegunfiringrate, 0x250B0004);
 	}
+	else if(GEReadROMWord(resolution->readfiringrate) != 0x00021040)
+		return;
+
+	GEPatchWatchLaserWeapon();
 }
 
 void GEDisableHeadRoll(void)
 {
 	int index;
-	const GE_HACK_PROFILE *profile = GEGetHackProfile();
+	const GE_HACK_RESOLUTION *resolution = GEGetHackResolution();
 
-	if(!IsRetailGoldenEyeUS() && !IsRandomEye() && !IsStereoSFX() && !IsRickRollEye() && !IsTND64())
-		return;
-
-	if(LOAD_UWORD_PARAM(profile->menupage) == 0 || LOAD_UWORD_PARAM(profile->menupage) > 10U)
+	if(!resolution->headrollvalid)
 		return;
 
 	for(index = 0; index < 6; index++)
 	{
-		if(GEReadROMWord(profile->headrollnop[index]) != geheadrolloriginal[index])
+		if(GEReadROMWord(resolution->headrollnop[index]) != geheadrolloriginal[index])
 			return;
 	}
 
 	for(index = 0; index < 6; index++)
-		GEWriteROMWord(profile->headrollnop[index], 0);
+		GEWriteROMWord(resolution->headrollnop[index], 0);
 }
 
 void PDTimingHack(void)
