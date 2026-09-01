@@ -3005,6 +3005,12 @@ void SetCounterFactor(int factor)
 
 #define GE_RANDOM_EYE_CRC1 0xB72EDF71
 #define GE_RANDOM_EYE_CRC2 0xC22234D1
+#define GE_STEREO_SFX_CRC1 0xFDAD2423
+#define GE_STEREO_SFX_CRC2 0x85FBF3E4
+#define GE_RICKROLL_EYE_CRC1 0xDE3A53EA
+#define GE_RICKROLL_EYE_CRC2 0x07678D07
+#define GE_TND64_CRC1 0x7AC67E38
+#define GE_TND64_CRC2 0x921CFA97
 #define PD_frameratecal 0x80014388 // location of function that returns when to draw at 60fps (thank you Ryan Dwyer for the code and single-handedly decompiling PD - you absolute legend)
 #define PD_masterclock 0x8038CECC // location of master clock code (TLB'd to 7F)
 #define PD_updateaimtarget 0x8025A7C8 // location of AI function to update aim target (TLB'd to 7F)
@@ -3016,6 +3022,7 @@ static const unsigned int gecodearray[20] = {0x27BDFFE8, 0x808E0007, 0x24010008,
 static const unsigned int gerandomeyecodearray[20] = {0x27BDFFE8, 0x808E0007, 0x24010008, 0x00001025, 0x15C1000D, 0x8C8F004C, 0x31F80060, 0x1300000A, 0x8C8E001C, 0x85CF0030, 0x85D80032, 0x15F80002, 0x27180001, 0xA5D80032, 0xAC85004C, 0x0FC09973, 0xAC860050, 0x34020001, 0x0BC0DB3E, 0x27BD0018}; // RandomEye relocation of the GE guard fix
 static const unsigned int geheadrollnop[6] = {0x000C2B60, 0x000C2B7C, 0x000C2B98, 0x000C2BB4, 0x000C2BD0, 0x000C2BEC}; // head roll float save instructions in rom, nop to disable head roll
 static const unsigned int gerandomeyeheadrollnop[6] = {0x000C4C80, 0x000C4C9C, 0x000C4CB8, 0x000C4CD4, 0x000C4CF0, 0x000C4D0C};
+static const unsigned int gestereosfxheadrollnop[6] = {0x000C2D30, 0x000C2D4C, 0x000C2D68, 0x000C2D84, 0x000C2DA0, 0x000C2DBC};
 static const unsigned int geheadrolloriginal[6] = {0xE450052C, 0xE4480530, 0xE4460534, 0xE4440538, 0xE452053C, 0xE4500540};
 
 typedef struct GE_HACK_PROFILE
@@ -3042,6 +3049,24 @@ static const GE_HACK_PROFILE gerandomeyehackprofile =
 	0x0008196C, 0x800330E4, gerandomeyecodearray, gerandomeyeheadrollnop
 };
 
+static const GE_HACK_PROFILE gestereosfxhackprofile =
+{
+	0x00092CEC, 0x8002A8C0, 0x0005F624, 0x0FC093E3,
+	0x0007DF88, 0x80032EA4, gecodearray, gestereosfxheadrollnop
+};
+
+static const GE_HACK_PROFILE gerickrolleyehackprofile =
+{
+	0x00092B1C, 0x8002A8C0, 0x0005F624, 0x0FC093E3,
+	0x0007DF88, 0x80032EA4, gecodearray, geheadrollnop
+};
+
+static const GE_HACK_PROFILE getnd64hackprofile =
+{
+	0x00092B1C, 0x8002A8C0, 0x0005F624, 0x0FC093E3,
+	0x0007DF88, 0x80032EA4, gecodearray, geheadrollnop
+};
+
 static BOOL IsRetailGoldenEyeUS(void)
 {
 	return
@@ -3057,9 +3082,51 @@ static BOOL IsRandomEye(void)
 	return currentromoptions.crc1 == GE_RANDOM_EYE_CRC1 && currentromoptions.crc2 == GE_RANDOM_EYE_CRC2;
 }
 
+static BOOL IsStereoSFX(void)
+{
+	return
+	(
+		currentromoptions.crc1 == GE_STEREO_SFX_CRC1
+	&&	currentromoptions.crc2 == GE_STEREO_SFX_CRC2
+	&&	currentromoptions.countrycode == 0x45
+	);
+}
+
+static BOOL IsRickRollEye(void)
+{
+	return
+	(
+		currentromoptions.crc1 == GE_RICKROLL_EYE_CRC1
+	&&	currentromoptions.crc2 == GE_RICKROLL_EYE_CRC2
+	&&	currentromoptions.countrycode == 0x45
+	);
+}
+
+static BOOL IsTND64(void)
+{
+	return
+	(
+		currentromoptions.crc1 == GE_TND64_CRC1
+	&&	currentromoptions.crc2 == GE_TND64_CRC2
+	&&	currentromoptions.countrycode == 0x45
+	);
+}
+
 static const GE_HACK_PROFILE *GEGetHackProfile(void)
 {
-	return IsRandomEye() ? &gerandomeyehackprofile : &geretailhackprofile;
+	if(IsRandomEye())
+		return &gerandomeyehackprofile;
+
+	if(IsStereoSFX())
+		return &gestereosfxhackprofile;
+
+	if(IsRickRollEye())
+		return &gerickrolleyehackprofile;
+
+	if(IsTND64())
+		return &getnd64hackprofile;
+
+	return &geretailhackprofile;
 }
 
 static unsigned int GEReadROMWord(unsigned int offset)
@@ -3079,19 +3146,29 @@ void GEFiringRateHack(void)
 {
 	int codeindex;
 	const GE_HACK_PROFILE *profile = GEGetHackProfile();
-	if(!IsRetailGoldenEyeUS() && !IsRandomEye())
+
+	if(!IsRetailGoldenEyeUS() && !IsRandomEye() && !IsStereoSFX() && !IsRickRollEye() && !IsTND64())
 		return;
-	if((LOAD_UWORD_PARAM(profile->menupage) == 0 || LOAD_UWORD_PARAM(profile->menupage) > 10U) || GEReadROMWord(profile->readfiringrate) != 0x00000000) // if game isn't safe to patch or nop instruction doesn't exist
+
+	if((LOAD_UWORD_PARAM(profile->menupage) == 0 || LOAD_UWORD_PARAM(profile->menupage) > 10U) ||
+		GEReadROMWord(profile->readfiringrate) != 0x00000000)
 		return;
-	if(GEReadROMWord(profile->updateaimtarget) != 0x27BDFFE8 || GEReadROMWord(profile->updateaimtarget + 0x30) != profile->updateaimtargetjal || GEReadROMWord(profile->dronegunfiringrate) != 0x250B0002)
+
+	if(GEReadROMWord(profile->updateaimtarget) != 0x27BDFFE8 ||
+		GEReadROMWord(profile->updateaimtarget + 0x30) != profile->updateaimtargetjal ||
+		GEReadROMWord(profile->dronegunfiringrate) != 0x250B0002)
 		return;
+
 	for(codeindex = 0; codeindex < 20; codeindex++)
-		GEWriteROMWord(profile->updateaimtarget + (codeindex * 4), profile->codearray[codeindex]); // apply camping guard 60fps fix
-	GEWriteROMWord(profile->readfiringrate, 0x00021040); // apply firing rate 60fps hack
-	GEWriteROMWord(profile->dronegunfiringrate, 0x250B0004); // make drone guns fire at half the rate
-	if(LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x20) == 0x03E8FF00 && LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x6C) == 0x00600F91) // if watch laser stats are default, fix for 60fps
+		GEWriteROMWord(profile->updateaimtarget + (codeindex * 4), profile->codearray[codeindex]);
+
+	GEWriteROMWord(profile->readfiringrate, 0x00021040);
+	GEWriteROMWord(profile->dronegunfiringrate, 0x250B0004);
+
+	if(LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x20) == 0x03E8FF00 &&
+		LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x6C) == 0x00600F91)
 	{
-		LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x20) = 0x03E8FF02; // set firing rate to 2 frames
+		LOAD_UWORD_PARAM(profile->watchlaserweapon + 0x20) = 0x03E8FF02;
 	}
 }
 
@@ -3099,16 +3176,20 @@ void GEDisableHeadRoll(void)
 {
 	int index;
 	const GE_HACK_PROFILE *profile = GEGetHackProfile();
-	if(!IsRetailGoldenEyeUS() && !IsRandomEye())
+
+	if(!IsRetailGoldenEyeUS() && !IsRandomEye() && !IsStereoSFX() && !IsRickRollEye() && !IsTND64())
 		return;
+
 	if(LOAD_UWORD_PARAM(profile->menupage) == 0 || LOAD_UWORD_PARAM(profile->menupage) > 10U)
 		return;
+
 	for(index = 0; index < 6; index++)
 	{
 		if(GEReadROMWord(profile->headrollnop[index]) != geheadrolloriginal[index])
 			return;
 	}
-	for(index = 0; index < 6; index++) // disable head roll float save instructions in rom
+
+	for(index = 0; index < 6; index++)
 		GEWriteROMWord(profile->headrollnop[index], 0);
 }
 
@@ -3334,10 +3415,10 @@ void PrepareBeforePlay(int IsFullScreen)
 
 	/*
 	 * Using the Check_QWORD to boot, will switch to ROM specified
-	 * emustatus.CodeCheckMethod £
-	 * at first FPU exception. I don't know why use NoCheck method will not boot £
+	 * emustatus.CodeCheckMethod  
+	 * at first FPU exception. I don't know why use NoCheck method will not boot  
 	 * Game like SuperMario should not need to do DynaCodeCheck but how the ROM does
-	 * not boot £
+	 * not boot  
 	 * with DynaCodeCheck, need debug
 	 */
 	if(emustatus.CodeCheckMethod == CODE_CHECK_NONE || emustatus.CodeCheckMethod == CODE_CHECK_DMA_ONLY)
@@ -3542,7 +3623,7 @@ void InitStatusBarParts(void)
 		GetWindowRect(gui.hStatusBar, &rc);
 
 		/*
-		 * sizes[5] = rc.right-rc.left-25; £
+		 * sizes[5] = rc.right-rc.left-25;  
 		 * sizes[4] = sizes[5]-40;
 		 */
 		sizes[4] = rc.right - rc.left - 25;
@@ -3940,9 +4021,9 @@ void DeleteAdvancedUserMenus(void)
 				}
 
 				/*
-				 * else if( strnicmp(str+2,"port Project64",14 )==0 ) £
-				 * { £
-				 * RemoveMenu(CPU_submenu, n, MF_BYPOSITION); £
+				 * else if( strnicmp(str+2,"port Project64",14 )==0 )  
+				 * {  
+				 * RemoveMenu(CPU_submenu, n, MF_BYPOSITION);  
 				 * }
 				 */
 			}
@@ -4054,9 +4135,9 @@ void Exit1964(void)
 
 	/*
 	 * Here is the fix for the problem that 1964 crash when exiting if using opengl
-	 * plugins. £
+	 * plugins.  
 	 * I don't know why 1964 crash, looks like crash is not happen in 1964, but dll
-	 * related. £
+	 * related.  
 	 * just doing exit(0) will not crash,(maybe we have left some resource not
 	 * released, donno)
 	 */
@@ -4284,11 +4365,11 @@ long OnOpcodeDebuggerCommands(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 				gMemoryState_Interpreter_Compare.ROM_Image = gMemoryState.ROM_Image;
 
 				/*
-				 * TODO: here we need to copy the memorystate and hardware state to £
+				 * TODO: here we need to copy the memorystate and hardware state to  
 				 * interpreter_compare. Actually, it is probably better to just use the same
-				 * method £
-				 * you use when switching from interpreter to dyna, because a few £
-				 * other things need to be initialized, like rdram size pointers for £
+				 * method  
+				 * you use when switching from interpreter to dyna, because a few  
+				 * other things need to be initialized, like rdram size pointers for  
 				 * interpreter_compare.
 				 */
 				opcode_debugger_memory_is_allocated = TRUE;

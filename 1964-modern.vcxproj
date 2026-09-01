@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{B0AFA255-71C4-4964-81C4-196400852022}</ProjectGuid>
+    <RootNamespace>GEPD1964</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(ProjectDir)build-vs2022\Release\</OutDir>
+    <IntDir>$(ProjectDir)build-vs2022\obj\</IntDir>
+    <TargetName>1964</TargetName>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <PreprocessorDefinitions>DYNAREC;WIN32;NDEBUG;_WINDOWS;ZLIB_DLL;WIN32_LEAN_AND_MEAN;ENABLE_64BIT_FPU;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <StructMemberAlignment>16Bytes</StructMemberAlignment>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <CallingConvention>FastCall</CallingConvention>
+      <CompileAs>CompileAsC</CompileAs>
+      <StringPooling>true</StringPooling>
+      <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ProgramDataBaseFileName>$(IntDir)1964.pdb</ProgramDataBaseFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)win32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <Culture>0x0409</Culture>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)1964.pdb</ProgramDatabaseFile>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)1964.map</MapFileName>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <LinkIncremental>false</LinkIncremental>
+      <LargeAddressAware>false</LargeAddressAware>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <DataExecutionPrevention>false</DataExecutionPrevention>
+      <AdditionalDependencies>ddraw.lib;dsound.lib;dxguid.lib;comctl32.lib;winmm.lib;zlib\zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <ClCompile Include="1964ini.c" />
+    <ClCompile Include="DebugR4300i.c" />
+    <ClCompile Include="FPU.c" />
+    <ClCompile Include="R4300i.c" />
+    <ClCompile Include="Tlb.c" />
+    <ClCompile Include="debug_option.c" />
+    <ClCompile Include="dma.c" />
+    <ClCompile Include="emulator.c" />
+    <ClCompile Include="fileio.c" />
+    <ClCompile Include="gamesave.c" />
+    <ClCompile Include="globals.c" />
+    <ClCompile Include="iPIF.c" />
+    <ClCompile Include="interrupt.c" />
+    <ClCompile Include="memory.c" />
+    <ClCompile Include="memory2.c" />
+    <ClCompile Include="n64rcp.c" />
+    <ClCompile Include="profiler.c" />
+    <ClCompile Include="timer.c" />
+    <ClCompile Include="cheatcode.c" />
+    <ClCompile Include="win32\registry.c" />
+    <ClCompile Include="romlist.c" />
+    <ClCompile Include="win32\windebug.c" />
+    <ClCompile Include="win32\wingui.c" />
+    <ClCompile Include="win32\wingui2.c" />
+    <ClCompile Include="win32\DLL_Rsp.c" />
+    <ClCompile Include="win32\Dll_Audio.c" />
+    <ClCompile Include="win32\Dll_Input.c" />
+    <ClCompile Include="win32\Dll_Video.c" />
+    <ClCompile Include="dynaRec\Analyze.c" />
+    <ClCompile Include="dynaRec\OpcodeDebugger.c" />
+    <ClCompile Include="compiler.c" />
+    <ClCompile Include="dynaRec\dynaCOP1.c" />
+    <ClCompile Include="dynaRec\dynaCPU.c" />
+    <ClCompile Include="dynaRec\dynaLog.c" />
+    <ClCompile Include="hle.c" />
+    <ClCompile Include="dynaRec\regcache.c" />
+    <ClCompile Include="dynaRec\x86.c" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ResourceCompile Include="win32\wingui.rc" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClInclude Include="1964ini.h" />
+    <ClInclude Include="DbgPrint.h" />
+    <ClInclude Include="Globals.h" />
+    <ClInclude Include="compiler.h" />
+    <ClInclude Include="debug_option.h" />
+    <ClInclude Include="dma.h" />
+    <ClInclude Include="emulator.h" />
+    <ClInclude Include="fileio.h" />
+    <ClInclude Include="gamesave.h" />
+    <ClInclude Include="hardware.h" />
+    <ClInclude Include="hle.h" />
+    <ClInclude Include="interrupt.h" />
+    <ClInclude Include="iPIF.h" />
+    <ClInclude Include="memory.h" />
+    <ClInclude Include="n64rcp.h" />
+    <ClInclude Include="plugins.h" />
+    <ClInclude Include="r4300i.h" />
+    <ClInclude Include="romlist.h" />
+    <ClInclude Include="timer.h" />
+    <ClInclude Include="cheatcode.h" />
+    <ClInclude Include="win32\resource.h" />
+    <ClInclude Include="win32\registry.h" />
+    <ClInclude Include="win32\windebug.h" />
+    <ClInclude Include="win32\wingui.h" />
+    <ClInclude Include="win32\DLL_Rsp.h" />
+    <ClInclude Include="win32\Dll_Audio.h" />
+    <ClInclude Include="win32\Dll_Input.h" />
+    <ClInclude Include="win32\Dll_Video.h" />
+    <ClInclude Include="dynaRec\dynaBranch.h" />
+    <ClInclude Include="dynaRec\dynaCOP1.h" />
+    <ClInclude Include="dynaRec\dynaCPU.h" />
+    <ClInclude Include="dynaRec\dynaCPU_defines.h" />
+    <ClInclude Include="dynaRec\dynaHelper.h" />
+    <ClInclude Include="dynaRec\dynaLog.h" />
+    <ClInclude Include="dynaRec\dynaRec.h" />
+    <ClInclude Include="dynaRec\opcodeDebugger.h" />
+    <ClInclude Include="dynaRec\regcache.h" />
+    <ClInclude Include="dynaRec\x86.h" />
+    <ClInclude Include="zlib\ioapi.h" />
+    <ClInclude Include="zlib\unzip.h" />
+    <ClInclude Include="zlib\zip.h" />
+    <ClInclude Include="zlib\zconf.h" />
+    <ClInclude Include="zlib\zlib.h" />
+  </ItemGroup>
+
+  <!-- SAFE_DYNAREC_NOOPT -->
+  <ItemGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile Update="compiler.c;dynaRec\*.c">
+      <Optimization>Disabled</Optimization>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <OmitFramePointers>false</OmitFramePointers>
+    </ClCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>
+
