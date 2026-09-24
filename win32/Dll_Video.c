@@ -29,10 +29,122 @@
 #include "../romlist.h"
 #include "wingui.h"
 #include "../emulator.h"
+#include "../zlib/zlib.h"
 
 uint16		GfxPluginVersion;
 HINSTANCE	hinstLibVideo = NULL;
 GFX_INFO	Gfx_Info;
+
+/* BEGIN GE GRAPHICS HEADER
+ * GLideN64 selects its GoldenEye depth-buffer handling by the ROM title.
+ * Keep this plugin-only copy alive until CloseDLL; the real header and all
+ * other plugins retain the mod's identity. */
+/* Match the graphics engine, not a mod title, ROM checksum or gameplay
+ * patch pattern. GoldenEye's boot accessors locate compressed RSP code.
+ * Only its first 4304 bytes are inflated; ROM and emulated RAM stay intact. */
+static unsigned int VIDEO_ROMWord(unsigned int offset)
+{
+    return *((unsigned int *)(gMemoryState.ROM_Image + offset));
+}
+
+static BOOL VIDEO_GoldenEyeMicrocode(unsigned int accessor)
+{
+    unsigned int index, start, end, position, count;
+    unsigned char input[2048], prefix[0x10D0];
+    z_stream stream;
+    int result;
+    BOOL match = FALSE;
+    if(accessor > gAllocationLength || gAllocationLength - accessor < 24U)
+        return FALSE;
+    for(index = 0; index < 24U; index += 12U)
+        if((VIDEO_ROMWord(accessor + index) & 0xFFFF0000U) != 0x3C020000U ||
+            VIDEO_ROMWord(accessor + index + 4U) != 0x03E00008U ||
+            (VIDEO_ROMWord(accessor + index + 8U) & 0xFFFF0000U) != 0x24420000U)
+            return FALSE;
+    start = ((VIDEO_ROMWord(accessor) & 0xFFFFU) << 16) +
+        (int)(short)(VIDEO_ROMWord(accessor + 8U) & 0xFFFFU);
+    end = ((VIDEO_ROMWord(accessor + 12U) & 0xFFFFU) << 16) +
+        (int)(short)(VIDEO_ROMWord(accessor + 20U) & 0xFFFFU);
+    if(start >= end || end > gAllocationLength || end - start < 3U ||
+        gMemoryState.ROM_Image[start ^ 3U] != 0x11U ||
+        gMemoryState.ROM_Image[(start + 1U) ^ 3U] != 0x72U)
+        return FALSE;
+    position = start + 2U;
+    /* Cap input as well as output, including malformed/empty deflate blocks. */
+    if(end - position > 0x10000U)
+        end = position + 0x10000U;
+    memset(&stream, 0, sizeof(stream));
+    stream.next_out = prefix;
+    stream.avail_out = sizeof(prefix);
+    if(inflateInit2(&stream, -MAX_WBITS) != Z_OK)
+        return FALSE;
+    while(stream.avail_out != 0)
+    {
+        if(stream.avail_in == 0)
+        {
+            if(position == end)
+                break;
+            count = end - position;
+            if(count > sizeof(input))
+                count = sizeof(input);
+            for(index = 0; index < count; index++)
+                input[index] = gMemoryState.ROM_Image[(position + index) ^ 3U];
+            position += count;
+            stream.next_in = input;
+            stream.avail_in = count;
+        }
+        result = inflate(&stream, Z_NO_FLUSH);
+        if(result != Z_OK && result != Z_STREAM_END)
+            break;
+        if(stream.avail_out == 0)
+        {
+            /* Canonical-byte counterpart of GLideN64's F3DGOLDEN CRC. */
+            match = crc32(0L, prefix + 0xD0U, 4096U) == 0x9CBA9D04UL;
+            break;
+        }
+        if(result == Z_STREAM_END)
+            break;
+    }
+    inflateEnd(&stream);
+    return match;
+}
+
+static BOOL GEPDUseGoldenEyeGraphicsProfile(void)
+{
+    unsigned int offset, limit;
+    if(gMemoryState.ROM_Image == NULL || gAllocationLength < 0x10E0U ||
+        (gAllocationLength & 3U) != 0 || VIDEO_ROMWord(0) != 0x80371240U)
+        return FALSE;
+    if(VIDEO_GoldenEyeMicrocode(0x10C8U))
+        return TRUE;
+    /* Also allow accessors moved within the resident boot code. */
+    limit = gAllocationLength < 0x20000U ? gAllocationLength : 0x20000U;
+    for(offset = 0x1000U; offset <= limit - 24U; offset += 4U)
+        if(offset != 0x10C8U && VIDEO_GoldenEyeMicrocode(offset))
+            return TRUE;
+    return FALSE;
+}
+
+static unsigned char videoGraphicsHeader[0x40];
+static BOOL videoIsGLideN64 = FALSE;
+static BOOL videoHeaderIsWordSwapped = FALSE;
+
+static BOOL VIDEO_IsGLideN64Name(const char *name)
+{
+	return _strnicmp(name, "GLideN64", 8) == 0 &&
+		(name[8] == '\0' || name[8] == ' ');
+}
+
+static void VIDEO_RefreshGraphicsHeader(void)
+{
+	static const char retailTitle[21] = "GOLDENEYE           ";
+	unsigned int index;
+	memcpy(videoGraphicsHeader, HeaderDllPass, sizeof(videoGraphicsHeader));
+	if(videoIsGLideN64 && videoHeaderIsWordSwapped && GEPDUseGoldenEyeGraphicsProfile())
+		for(index = 0; index < 20; index++)
+			videoGraphicsHeader[(0x20U + index) ^ 3U] = retailTitle[index];
+}
+/* END GE GRAPHICS HEADER */
 
 BOOL (__cdecl *_VIDEO_InitiateGFX) (GFX_INFO) = NULL;
 void (__cdecl *_VIDEO_ProcessDList) (void) = NULL;
@@ -67,6 +179,8 @@ void (__cdecl *_VIDEO_Under_Selecting_About) (HWND) = NULL;
  */
 BOOL LoadVideoPlugin(char *libname)
 {
+	videoIsGLideN64 = FALSE;
+	videoHeaderIsWordSwapped = FALSE;
 	/* Release the video plug-in if it has already been loaded */
 	if(hinstLibVideo != NULL)
 	{
@@ -89,10 +203,12 @@ BOOL LoadVideoPlugin(char *libname)
 			ZeroMemory(&Plugin_Info, sizeof(Plugin_Info));
 
 			VIDEO_GetDllInfo(&Plugin_Info);
+			Plugin_Info.Name[sizeof(Plugin_Info.Name) - 1] = '\0';
 			GfxPluginVersion = Plugin_Info.Version;
 
 			if(Plugin_Info.Type == PLUGIN_TYPE_GFX) /* Check if this is a video plugin */
 			{
+				videoIsGLideN64 = VIDEO_IsGLideN64Name(Plugin_Info.Name);
 				_VIDEO_DllClose = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "CloseDLL");
 				_VIDEO_ExtraChangeResolution = (void(__cdecl *) (HWND, long, HWND)) GetProcAddress
 					(
@@ -182,6 +298,12 @@ BOOL VIDEO_InitiateGFX(GFX_INFO Gfx_Info)
 	
 	VIDEO_DllClose();
 	GFX_PluginRECT.UseThis = FALSE;
+	videoHeaderIsWordSwapped = Gfx_Info.MemoryBswaped != 0;
+	if(videoIsGLideN64)
+	{
+		VIDEO_RefreshGraphicsHeader();
+		Gfx_Info.HEADER = (__int8 *)videoGraphicsHeader;
+	}
 
 	__try
 	{
@@ -219,6 +341,8 @@ void VIDEO_RomOpen(void)
 		{
 			RECT Rect;
 			GetWindowRect(gui.hwnd1964main, &Rect);
+			if(videoIsGLideN64)
+				VIDEO_RefreshGraphicsHeader();
 			_VIDEO_RomOpen();
 			GetPluginsResizeRequest(&Rect);
 		}
@@ -347,6 +471,8 @@ void VIDEO_DllClose(void)
 void CloseVideoPlugin(void)
 {
 	VIDEO_DllClose();
+	videoIsGLideN64 = FALSE;
+	videoHeaderIsWordSwapped = FALSE;
 
 	if(hinstLibVideo) FreeLibrary(hinstLibVideo);
 
