@@ -271,6 +271,9 @@ void StopEmulator(void)
 			RSPRomClosed();
 		}
 	}
+	/* CPU execution has stopped and the input plugin has closed. Keep the
+	 * loaded cartridge reusable when Play is pressed without reopening it. */
+	GEPDRestoreROMHacks();
 }
 
 /*

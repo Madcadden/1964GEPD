@@ -62,6 +62,7 @@ void				PDTimingHack(void);
 void GEPDQueueRuntimeHacks(void);
 void GEPDApplyPendingHacks(void);
 void GEPDOnGameEntry(void);
+void GEPDRestoreROMHacks(void);
 void PDDisableHeadRoll(void);
 void				PDSpeedHack(void);
 void				GEPDPause(BOOL pause);

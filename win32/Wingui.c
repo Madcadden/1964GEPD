@@ -1689,6 +1689,7 @@ void CloseROM(void)
 		}
 
 		Close_iPIF();
+		GEPDRestoreROMHacks();
 		FreeVirtualRomMemory();
 		r4300i_Init();
 
@@ -3126,6 +3127,59 @@ static BOOL GEFindHeadRoll(unsigned int *offsets)
 	return TRUE;
 }
 
+/* Only restore bytes written by this session, never a mod's prepatched code.
+ * Multiword guard/head-roll changes are restored as complete groups. */
+typedef struct GE_ROM_PATCH_GROUP
+{
+	unsigned int count;
+	unsigned int offsets[20];
+	unsigned int original[20];
+	unsigned int patched[20];
+} GE_ROM_PATCH_GROUP;
+static GE_ROM_PATCH_GROUP geROMPatchGroups[4];
+static unsigned char *geROMPatchOwner = NULL;
+static unsigned int geROMPatchLength = 0;
+
+static void GERecordROMPatch(unsigned int group, unsigned int index,
+	unsigned int offset, unsigned int patched)
+{
+	GE_ROM_PATCH_GROUP *record = &geROMPatchGroups[group];
+	geROMPatchOwner = gMemoryState.ROM_Image;
+	geROMPatchLength = gAllocationLength;
+	record->offsets[index] = offset;
+	record->original[index] = GEReadROMWord(offset);
+	record->patched[index] = patched;
+	record->count = index + 1;
+}
+
+void GEPDRestoreROMHacks(void)
+{
+	unsigned int group, index;
+	GE_ROM_PATCH_GROUP *record;
+	if(geROMPatchOwner != NULL && geROMPatchOwner == gMemoryState.ROM_Image &&
+		geROMPatchLength == gAllocationLength)
+	{
+		for(group = 0; group < 4; group++)
+		{
+			record = &geROMPatchGroups[group];
+			for(index = 0; index < record->count; index++)
+			{
+				if(record->offsets[index] > gAllocationLength ||
+					gAllocationLength - record->offsets[index] < 4 ||
+					GEReadROMWord(record->offsets[index]) != record->patched[index])
+					break;
+			}
+			if(index != record->count)
+				continue;
+			for(index = 0; index < record->count; index++)
+				GEWriteROMWord(record->offsets[index], record->original[index]);
+		}
+	}
+	memset(geROMPatchGroups, 0, sizeof(geROMPatchGroups));
+	geROMPatchOwner = NULL;
+	geROMPatchLength = 0;
+}
+
 static GE_HACK_RESOLUTION geResolution;
 static BOOL geResolutionInitialized = FALSE;
 static unsigned int geRAMFiringSite = 0;
@@ -3144,6 +3198,7 @@ static unsigned int geRAMHeadRollContext[12];
 /* A new boot must never inherit addresses from another image with the same CRC. */
 static void GEPDResetHackResolution(void)
 {
+	GEPDRestoreROMHacks();
 	memset(&geResolution, 0, sizeof(geResolution));
 	geResolutionInitialized = FALSE;
 	geRAMFiringSite = 0;
@@ -3389,10 +3444,16 @@ void GEFiringRateHack(void)
 	const GE_HACK_RESOLUTION *resolution = GEGetHackResolution();
 
 	if(resolution->firingvalid && GEReadROMWord(resolution->readfiringrate) == 0x00000000)
+	{
+		GERecordROMPatch(0, 0, resolution->readfiringrate, 0x00021040);
 		GEWriteROMWord(resolution->readfiringrate, 0x00021040);
+	}
 
 	if(resolution->dronevalid && GEReadROMWord(resolution->dronegunfiringrate) == 0x250B0002)
+	{
+		GERecordROMPatch(1, 0, resolution->dronegunfiringrate, 0x250B0004);
 		GEWriteROMWord(resolution->dronegunfiringrate, 0x250B0004);
+	}
 
 	if(resolution->guardvalid &&
 		GEPatternMatches(resolution->updateaimtarget, geupdateaimtargetpattern, geupdateaimtargetmask, 20) &&
@@ -3405,6 +3466,7 @@ void GEFiringRateHack(void)
 				code = resolution->updateaimtargetjal;
 			else if(codeindex == 18)
 				code = resolution->updateaimtargetreturn;
+			GERecordROMPatch(2, codeindex, resolution->updateaimtarget + codeindex * 4, code);
 			GEWriteROMWord(resolution->updateaimtarget + (codeindex * 4), code);
 		}
 	}
@@ -3431,7 +3493,10 @@ void GEDisableHeadRoll(void)
 	}
 
 	for(index = 0; index < 6; index++)
+	{
+		GERecordROMPatch(3, index, resolution->headrollnop[index], 0);
 		GEWriteROMWord(resolution->headrollnop[index], 0);
+	}
 }
 
 static const unsigned int pdspeedpattern[27] = {0x8C8501E4, 0x0040F809, 0x8C8601E0, 0x0C005431, 0x00000000, 0x10400011, 0x3C0F8006, 0x8DEFEEC0, 0x51E0000F, 0x8FBF0014, 0x0C005207, 0x00000000, 0x5C40000B, 0x8FBF0014, 0x0C00543A, 0x00000000, 0x0C00508E, 0x00000000, 0x0C005451, 0x00000000, 0x3C04800A, 0x0C005016, 0x24849A60, 0x8FBF0014, 0x27BD0018, 0x03E00008, 0x00000000};
