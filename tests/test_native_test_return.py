@@ -44,6 +44,7 @@ static void InvalidateOneBlock(unsigned int a) { assert((a >= 0x70000000U && a <
 #define STATUS 12
 #define EPC 14
 static unsigned int gHWS_pc, gHWS_COP0Reg[32];
+static unsigned long long gHWS_GPR[32];
 '''
 
 CASES = r'''#define TITLE_ROM 0x00035850U
@@ -210,16 +211,22 @@ def main():
             struct.pack_into('>I',ram,address,value)
         # A user map sentinel proves the code repair does not rewrite editor data.
         ram[0x400000:0x43e888]=bytes((i*17+3)&255 for i in range(0x3e888))
+    # Isolate this title-function regression suite from the separately tested
+    # texture correction. A changed texture-table identity closes that gate;
+    # all title code and context remain the supplied ROM's exact bytes.
+    title_rom=bytearray(rom)
+    isolate_textures='GEReconcileEditorTextures' in code
+    if isolate_textures:title_rom[0x21990]^=1
     with tempfile.TemporaryDirectory(prefix='native-return-test-') as d:
-        d=Path(d);(d/'ram.bin').write_bytes(ram);c=d/'test.c';c.write_text(PREAMBLE+code+CASES)
+        d=Path(d);(d/'rom.bin').write_bytes(title_rom);(d/'ram.bin').write_bytes(ram);c=d/'test.c';c.write_text(PREAMBLE+code+CASES)
         exe=d/'test';flags=['-std=c99','-O1','-Wall','-Wextra','-Wno-unused-const-variable']
         if args.sanitize:flags+=['-fsanitize=address,undefined']
         subprocess.run(shlex.split(os.environ.get('CC','cc'))+flags+[str(c),'-o',str(exe)],check=True)
-        command=[str(exe),str(args.plus.resolve()),str(d/'ram.bin'),str(d/'rom-payload.bin'),str(d/'ram-payload.bin')]
+        command=[str(exe),str(d/'rom.bin'),str(d/'ram.bin'),str(d/'rom-payload.bin'),str(d/'ram-payload.bin')]
         if args.retail:command.append(str(args.retail.resolve()))
         run=subprocess.run(command,capture_output=True,text=True)
         assert run.returncode==0,run.stderr
         hashes={name:hashlib.sha256((d/name).read_bytes()).hexdigest() for name in ['rom-payload.bin','ram-payload.bin']}
         assert set(hashes.values())=={'0d0ac6cbbb16b0956833fbd891f248d54072600e6cd993757e4c3e395b373651'},'Production payload differs from user-tested repair'
-        print(json.dumps({'source_sha256':hashlib.sha256(source_bytes).hexdigest(),'rom_sha256':hashlib.sha256(rom).hexdigest(),'payload_sha256':hashes,'sanitizers':args.sanitize,'result':run.stdout.strip(),'limits':'Host C executes production patch code against bounded ROM/RAM fixtures; user-tested guest-function payload is authenticated by hash. No live emulator replay.'},indent=2))
+        print(json.dumps({'source_sha256':hashlib.sha256(source_bytes).hexdigest(),'rom_sha256':hashlib.sha256(rom).hexdigest(),'payload_sha256':hashes,'sanitizers':args.sanitize,'texture_gate_isolated':isolate_textures,'result':run.stdout.strip(),'limits':'Host C executes production patch code against bounded ROM/RAM fixtures; user-tested guest-function payload is authenticated by hash. No live emulator replay.'},indent=2))
 if __name__=='__main__':main()

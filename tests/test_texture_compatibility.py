@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify exact GoldenEye Plus texture compatibility correction integration.
 
-Supply a legally held, original Plus ROM. The script creates synthetic host
+Supply an original Plus ROM. The script creates synthetic host
 buffers and executes the extracted production compatibility code only; it never
 executes guest instructions. No ROM, captured save, or map is included.
 """
@@ -72,7 +72,8 @@ static void reset_case(void) {
 static void apply_texture(void) { gepdGameEntryReached=TRUE; GEReconcileEditorTextures(); }
 static void assert_nothing_changed(void) {
     unsigned char *rom=malloc(gAllocationLength?gAllocationLength:1),*ram=malloc(sizeof test_rdram);unsigned int n=gAllocationLength;assert(rom&&ram);
-    if(n) memcpy(rom,gMemoryState.ROM_Image,n);memcpy(ram,test_rdram,sizeof test_rdram);invalidations=pageinvalidations=0;
+    if(n) memcpy(rom,gMemoryState.ROM_Image,n);
+    memcpy(ram,test_rdram,sizeof test_rdram);invalidations=pageinvalidations=0;
     apply_texture();
     assert(!n || !memcmp(rom,gMemoryState.ROM_Image,n));assert(!memcmp(ram,test_rdram,sizeof test_rdram));assert(!invalidations && !pageinvalidations);
     free(rom);free(ram);
@@ -157,7 +158,7 @@ int main(int argc,char **argv) {
         free(expected_rom);free(expected_ram);
     }
     /* A suspended or interrupted helper must complete before its frame changes. */
-    for(i=0;i<11;i++) {
+    for(i=0;i<12;i++) {
         unsigned int first;
         reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);
         first=LOAD_UWORD_PARAM(0x8002772CU);
@@ -173,6 +174,11 @@ int main(int argc,char **argv) {
         case 8:LOAD_UWORD_PARAM(0x80027730U)=0x80123458U;break;
         case 9:LOAD_UWORD_PARAM(0x80027724U)=0;break;
         case 10:LOAD_UWORD_PARAM(0x8002772CU)=first+4;break;
+        case 11:
+            LOAD_UWORD_PARAM(0x8002772CU)=0x80301000U;
+            LOAD_UWORD_PARAM(0x8030100CU)=first;
+            LOAD_UWORD_PARAM(0x80301104U)=0xA06EFF08U;
+            break;
         }
         assert_nothing_changed();assert(gepdPatchesPending==1);
         memcpy(test_rdram,original_ram,n);gHWS_pc=0x806e1a50;memset(gHWS_COP0Reg,0,sizeof gHWS_COP0Reg);memset(gHWS_GPR,0,sizeof gHWS_GPR);
@@ -242,5 +248,5 @@ def main():
         assert run.returncode==0,run.stderr
         hashes={name:hashlib.sha256((d/name).read_bytes()).hexdigest() for name in ['rom-payload.bin','ram-payload.bin']}
         assert set(hashes.values())=={'b2b60b99bb3ec79c5ff7c464b02ed203f0b40cf6a1473c2a662f341534e13796'},'Production bytes differ from the user-confirmed correction'
-        print(json.dumps({'source_sha256':hashlib.sha256(source_bytes).hexdigest(),'rom_sha256':hashlib.sha256(rom).hexdigest(),'payload_sha256':hashes,'sanitizers':args.sanitize,'result':run.stdout.strip(),'limits':'Production host C runs against bounded buffers; no guest gameplay or emulator scheduler replay. No game data is distributed.'},indent=2))
+        print(json.dumps({'source_sha256':hashlib.sha256(source_bytes).hexdigest(),'rom_sha256':hashlib.sha256(rom).hexdigest(),'payload_sha256':hashes,'sanitizers':args.sanitize,'sanitizer_options':os.environ.get('ASAN_OPTIONS','default') if args.sanitize else None,'result':run.stdout.strip(),'limits':'Production host C runs against bounded buffers; no guest gameplay or emulator scheduler replay. No game data is distributed.'},indent=2))
 if __name__=='__main__':main()

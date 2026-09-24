@@ -1,5 +1,7 @@
 ## Changes in v0.2.2
 
+Fixes the confirmed freezes and pixelated output while scrolling textures in **GoldenEye 007 Plus's Map Maker**, including scrolling backwards with **J**. Texture selection stays within the valid list, and affected IA4 textures load correctly. This correction is in the updated `1964.exe`; the included Mouse Injector v0.3.2 DLL is unchanged. It applies to the verified Plus layout and supports compatible older saves.
+
 Fixes the black screen after confirming **Exit** in GoldenEye 007 Plus’s **Native Test Mode**. Exit now returns to Map Maker with the current map intact. This correction requires the updated `1964.exe`; the included Mouse Injector v0.3.2 DLL is unchanged.
 
 **Josh's [GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus) is now supported**, including mouse controls for its Map Maker and menus. GoldenEye Plus also includes **1–4-player local co-op**, developed by Josh and the mod's contributors.
@@ -69,9 +71,9 @@ The download has been updated in place; the version remains v0.2.2.
 
 **SHA-256**
 
-- ZIP: `4e32c16672fdc3db12469dba6be26cebbd81123f75818f48fad4cc6d4ef6da00`
-- `1964.exe`: `b7369abecb1c65f994e1a3e907ec5f1ffdbf3013e92d4d4613d0632b02b7c700`
+- ZIP: `0c1a06529f73ef7d094e0d300dca1fa17ab3f80a616ce91b45475a748e4621d8`
+- `1964.exe`: `b8a7c2eb34aabcf404820b0883e80d06155c8df7f4d753c48594e2d7f7c111ce`
 - `plugin/Mouse_Injector.dll`: `9d1c3df81c70601ff9bb7e7dd97c8cfa641ef3104f844d2c4d6e727468c798fd`
 
-[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/1f75fec4c66a8348f67763c47696c5d375c5d993) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)
+[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/de16c6c7adcbbd3bdb57ad920ca5a176e85e8367) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)
 
