@@ -245,7 +245,7 @@ BEGIN
         MENUITEM "GE Firing Rate Hack",         ID_GEFIRINGHACK
         MENUITEM "PD Speed-Hack",               ID_PDSPEEDHACK
         MENUITEM SEPARATOR
-        MENUITEM "GE Disable Head Roll",        ID_GEDISABLEHEADROLL
+        MENUITEM "GE/PD Disable Head Roll",        ID_GEDISABLEHEADROLL
     END
     POPUP "&Help"
     BEGIN

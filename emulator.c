@@ -271,6 +271,9 @@ void StopEmulator(void)
 			RSPRomClosed();
 		}
 	}
+	/* CPU execution has stopped and the input plugin has closed. Keep the
+	 * loaded cartridge reusable when Play is pressed without reopening it. */
+	GEPDRestoreROMHacks();
 }
 
 /*
@@ -405,6 +408,7 @@ void N64_Boot(void)
 {
 	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 	int		RDRam_Hacked = 0;
+	BOOL	romHooked = FALSE;
 	uint32	bootaddr = (*(uint32 *) (gMS_ROM_Image + 8) & 0x007FFFFF) + 0x80000000;
 	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
@@ -425,6 +429,16 @@ void N64_Boot(void)
 	||	((uint32) (*Dyna_Check_Codes) == (uint32) Dyna_Code_Check_None_Boot)
 	)
 	{
+		/* None_Boot can continue beyond the IPL entry until the first FPU
+		 * instruction. Patch immediately at the entry, before the main game
+		 * loader copies ROM code into expansion RAM. */
+		if(!romHooked && gHWS_pc == bootaddr)
+		{
+			if(mouseinjectorpresent)
+				CONTROLLER_HookROM((DWORD *)gMemoryState.ROM_Image);
+			GEPDOnGameEntry();
+			romHooked = TRUE;
+		}
 		if(emustatus.cpucore == INTERPRETER)
 		{
 			InterpreterStepCPU();
@@ -462,6 +476,15 @@ void N64_Boot(void)
 				}
 			}
 		}
+	}
+
+	/* Normal boot exits the loop on arrival at bootaddr. Also preserve the
+	 * historical post-boot fallback for ROMs with unusual entry paths. */
+	if(!romHooked)
+	{
+		if(mouseinjectorpresent)
+			CONTROLLER_HookROM((DWORD *)gMemoryState.ROM_Image);
+		GEPDOnGameEntry();
 	}
 
 	if(emuoptions.auto_apply_cheat_code)
@@ -505,8 +528,6 @@ void (__cdecl StartCPUThread) (void *pVoid)
 	p_gMemoryState = (MemoryState *) &gMemoryState;
 	InitEmu();
 	N64_Boot();
-	if(mouseinjectorpresent)
-		CONTROLLER_HookROM((DWORD *)gMemoryState.ROM_Image); // hot patch rom here
 
 	emustatus.reason_to_stop = EMURUNNING;
 	DO_PROFILIER_R4300I
