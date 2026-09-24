@@ -1,24 +1,6 @@
 ## Changes in v0.2.2
 
-- Bundles **Mouse Injector v0.3.2**, restoring controls in **GoldenEye X 6a** by admitting its renamed ROM header to the existing Perfect Dark compatibility checks.
-- Keeps the same `1964.exe` as v0.2.1. The emulator already recognizes GoldenEye X correctly; no emulator code change is required.
-- Retains the PD-AI startup fix, GoldenEye Plus Map Maker controls and existing settings.
-
-GoldenEye X 6a controls have been confirmed by user testing with the included DLL. Existing v0.2.1 users can replace only `plugin/Mouse_Injector.dll` and cold-boot the ROM. GoldenEye X uses the Perfect Dark input settings.
-
-Automated production-driver tests cover the supplied GoldenEye X 6a and Perfect Dark USA Rev 1 code/data: boot/reopen, menu presses/releases, one/four-player mouse look and buttons, pause/death guards, and invalid-signature rejection. They reproduce the old GoldenEye X rejection and pass with the fix in normal and speedrun configurations. These checks use bounded simulated memory/input, not live Windows device input or game frames. Native emulator classification and Perfect Dark patch-discovery checks also passed.
-
-## Retained v0.2.1 fixes
-
-- Fixes the startup black screen with GoldenEye PD-AI builds by identifying GoldenEye's native ROM mapping independently of the optional guard-AI patch.
-- Retains the Mouse Injector v0.3.1 fix for reordered multiplayer flags, restoring controls with PD-AI.
-- Preserves GoldenEye Plus's RAM/TLB path and existing Map Maker controls.
-
-Startup and controls with **GoldenEye PD-AI v2.42** have been confirmed by user testing. For PD-AI, use **8 MB / Expansion Pak** and cold-boot after replacing both files.
-
-The startup fix passed 26 synthetic mapping cases, checks against retail GoldenEye, PD-AI v2.41/v2.42 and GoldenEye Plus, sanitizer checks, and the existing patch-resolution suite. The injector hotfix passed automated menu/gameplay input, button-release, reopen and compatibility checks. The tested emulator executable was built by [GitHub Actions](https://github.com/Madcadden/1964GEPD/actions/runs/36020528761).
-
-## About
+Watch-menu mouse navigation is available **only in GoldenEye 007 Plus**, where the Map Maker options are located. Other GoldenEye ROMs keep keyboard/controller navigation in the watch. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
 **Josh's [GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus) is now supported**, including mouse controls for its Map Maker and menus. GoldenEye Plus also includes **1–4-player local co-op**, developed by Josh and the mod's contributors.
 
@@ -28,7 +10,7 @@ This build automatically finds GoldenEye's relocated game segment and the correc
 
 - Supports GoldenEye Plus detection, copied game code, FOV and player firing-rate patches.
 - Adds Map Maker free-camera mouse look and mouse selection in the Basic/Advanced chooser and editor menu.
-- Adds mouse navigation to GoldenEye watch, multiplayer and confirmation menus that use directional input.
+- Adds mouse navigation to GoldenEye 007 Plus's watch menu, plus multiplayer and confirmation menus that use directional input.
 - Adds configurable D-pad and L/R shoulder bindings. Existing settings migrate without resetting your controls or FOV.
 - Makes R usable for Plus's native interact/reload action during gameplay; E retains its native action.
 - Improves Perfect Dark FOV/settings discovery and automatically locates its 60 FPS and head-roll controls. The menu now labels Disable Head Roll for GE/PD.
@@ -51,15 +33,15 @@ Defaults with the WASD input profile:
 
 The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. Buttons can be remapped in Input Settings. **Keyboard R remains reload** during gameplay, separate from the N64 R shoulder.
 
-Watch and other directional menus respond to mouse movements and left-click. Enter still closes the main watch. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+In **GoldenEye 007 Plus only**, the watch menu responds to mouse movements and left-click; Enter closes the main watch. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
 
 ## Compatibility
 
-GoldenEye X 6a controls, GoldenEye Plus operation and PD-AI v2.42 startup and controls have been confirmed by user testing. The Windows builds and automated tests passed, including retail GoldenEye, the supplied Plus build and Perfect Dark USA Rev 1 code. These checks do not establish that every co-op configuration or mod works.
+GoldenEye 007 Plus! 
 
 **Previously tested:** GoldenEye 007 (USA), Perfect Dark (USA v1.1), Murk's RandomEye-zer v1.1, Bloodlust v1.06, King of the Hill v0.98, Cartridge Tilt, GE Stereo SFX, GE Compilation v1.1, GoldenEye Tower, Goldfinger 64, Netplay 60FPS LTK Cup Edition v1.1, Pheonaarx's Yet To Come, Project GoldenEye v2.1, RickRollEye 64, TND64 Expanded and TSWLM 64 Demo v1.
 
-Automatic discovery supports recognized code layouts. Plus's rewritten reverse-pitch and HUD/aspect patches are skipped when unverified. Its reload key uses the mod's native interact/reload action, with priority over Fire while held. Perfect Dark's legacy cursor/reload patches and invasive combat timing changes still require their verified layouts.
+Automatic discovery supports recognized code layouts. 
 
 Online co-op with a full-screen view for each player is a possible future project; it is not included in this release.
 
@@ -83,13 +65,14 @@ Thanks also to every mod, plugin and texture-pack creator!
 
 ## Files
 
+The download has been updated in place; the version remains v0.2.2.
+
 `1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip` includes `1964.exe`, `plugin/Mouse_Injector.dll`, installation notes and checksums.
 
 **SHA-256**
 
-- ZIP: `07f8c9dffde46e0fa1dbd09b55c29455937b3474d814b6c148619c124953bbdd`
+- ZIP: `e4169c0ab6bd724e3f05e887764be0c710aebf50b531f8b8734fe682cfb02320`
 - `1964.exe`: `e40a096f00d0843a58af6ff5eb84cdbdad8de9c2416b92692460865b5aca4490`
-- `plugin/Mouse_Injector.dll`: `9ecf8b986d42960e6a5fbeec35b8527dae671038ebcb52a1ee6885f2ef802968`
+- `plugin/Mouse_Injector.dll`: `cc33aac5b6110821ea3f9865179c2e1dbf02a1cbbbbfb6321061bc30ab2a8e63`
 
-[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Release source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility-v0.2.2) · [Mouse Injector source](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility)
-
+[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/93af8d107c5d9135a70d7a4d1667c55b0646dd20) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/c24f18c3b33c4a916a7498dffd6fba6e1c94b481)

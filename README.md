@@ -8,26 +8,11 @@ This branch automatically locates relocated GoldenEye game segments and the firi
 
 The included **[Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)** adds FOV and input discovery, Map Maker mouse controls, and configurable N64 D-pad and shoulder buttons.
 
-## GoldenEye X controls
+## Watch-menu mouse navigation
 
-v0.2.2 bundles **Mouse Injector v0.3.2**, which restores controls in
-**GoldenEye X 6a**. Its renamed ROM header now reaches the existing Perfect Dark
-compatibility checks. Controls have been confirmed by user testing.
+Watch-menu mouse navigation is available **only in GoldenEye 007 Plus**, where the Map Maker options are located. Other GoldenEye ROMs keep keyboard/controller navigation in the watch. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
-The emulator executable is unchanged from v0.2.1; the emulator already
-recognizes GoldenEye X as a Perfect Dark engine mod. Existing v0.2.1 users can
-replace only `plugin/Mouse_Injector.dll`. GoldenEye X uses the Perfect Dark
-input settings; cold-boot after upgrading.
-
-Automated checks cover the supplied ROM's driver, menu and gameplay input,
-boot/reopen and code-signature guards. They do not establish compatibility with
-every GoldenEye X version or Perfect Dark mod.
-
-## GoldenEye PD-AI compatibility
-
-v0.2.1 fixes the startup black screen with GoldenEye PD-AI builds by identifying the game's native ROM mapping independently of the optional guard-AI patch. The bundled Mouse Injector v0.3.1 also recognizes reordered multiplayer flags, fixing the missing controls.
-
-Startup and controls with **GoldenEye PD-AI v2.42** have been confirmed by user testing. Update both `1964.exe` and `plugin/Mouse_Injector.dll`, keep 8 MB / Expansion Pak enabled for PD-AI, and cold-boot the ROM.
+The v0.2.2 download has been updated in place with the corrected Mouse Injector v0.3.2. The emulator executable is unchanged; existing v0.2.2 users can replace only `plugin/Mouse_Injector.dll` and cold-boot the ROM.
 
 ## GoldenEye 007 Plus support
 
@@ -52,7 +37,7 @@ Defaults with the WASD input profile:
 
 The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. All added buttons can be remapped in Input Settings. Keyboard **R remains reload** during gameplay; it is separate from the N64 R shoulder.
 
-Watch and other menus that use directional selection respond to mouse movements and left-click. Enter still closes the main watch. Orbit grid movement and test-preview mouse controls are not added; orbit mode retains its keyboard controls.
+In **GoldenEye 007 Plus only**, the watch menu responds to mouse movements and left-click; Enter closes the main watch. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
 
 ## Install
 
@@ -88,4 +73,3 @@ This is an unofficial modification of [Graslu's 1964 GEPD Edition](https://githu
 The unmodified 1964 0.8.5 source code is available from [SourceForge](https://sourceforge.net/projects/schibo/files/1964%200.8.5/1964-2002-0922.zip/1964-2002-0922.zip).
 
 > **Notice:** This emulator is intended specifically for GoldenEye 007 and Perfect Dark. Other Nintendo 64 games may receive no benefit or behave incorrectly. ROM files are not included.
-

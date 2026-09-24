@@ -18,7 +18,7 @@ This build automatically finds GoldenEye's relocated game segment and the correc
 
 - Supports GoldenEye Plus detection, copied game code, FOV and player firing-rate patches.
 - Adds Map Maker free-camera mouse look and mouse selection in the Basic/Advanced chooser and editor menu.
-- Adds mouse navigation to GoldenEye watch, multiplayer and confirmation menus that use directional input.
+- Adds mouse navigation to multiplayer and confirmation menus that use directional input.
 - Adds configurable D-pad and L/R shoulder bindings. Existing settings migrate without resetting your controls or FOV.
 - Makes R usable for Plus's native interact/reload action during gameplay; E retains its native action.
 - Improves Perfect Dark FOV/settings discovery and automatically locates its 60 FPS and head-roll controls. The menu now labels Disable Head Roll for GE/PD.
@@ -41,7 +41,9 @@ Defaults with the WASD input profile:
 
 The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. Buttons can be remapped in Input Settings. **Keyboard R remains reload** during gameplay, separate from the N64 R shoulder.
 
-Watch and other directional menus respond to mouse movements and left-click. Enter still closes the main watch. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+Directional multiplayer and confirmation menus respond to mouse movements and left-click. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+
+For watch-menu mouse navigation limited to GoldenEye 007 Plus, use the corrected [v0.2.2 release](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2).
 
 ## Compatibility
 
@@ -82,4 +84,3 @@ Thanks also to every mod, plugin and texture-pack creator!
 - `plugin/Mouse_Injector.dll`: `fb589dee6590eacb002bf1edeee43b964968a273219d8e161b049cf9ae8dcc9f`
 
 [Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Release source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility-v0.2.1) · [Mouse Injector source](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility)
-
