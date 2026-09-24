@@ -1,12 +1,18 @@
 # 1964 GEPD 0.8.5 - Auto-Mod Edition
 
-**[Download Auto-Mod Edition v0.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2)** — includes Mouse Injector v0.3.
+**[Download Auto-Mod Edition v0.2.1](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.1)** — includes Mouse Injector v0.3.1.
 
 1964 0.8.5 GEPD Edition with automatic compatibility support for GoldenEye 007 and Perfect Dark ROM mods.
 
 This branch automatically locates relocated GoldenEye game segments and the firing-rate and head-roll modification points instead of relying on fixed retail-ROM addresses. It also includes the corrected main-window and toolbar appearance.
 
-The included **[Mouse Injector v0.3](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3)** adds FOV and input discovery, Map Maker mouse controls, and configurable N64 D-pad and shoulder buttons.
+The included **[Mouse Injector v0.3.1](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.1)** adds FOV and input discovery, Map Maker mouse controls, and configurable N64 D-pad and shoulder buttons.
+
+## GoldenEye PD-AI compatibility
+
+v0.2.1 fixes the startup black screen with GoldenEye PD-AI builds by identifying the game's native ROM mapping independently of the optional guard-AI patch. The bundled Mouse Injector v0.3.1 also recognizes reordered multiplayer flags, fixing the missing controls.
+
+Startup and controls with **GoldenEye PD-AI v2.42** have been confirmed by user testing. Update both `1964.exe` and `plugin/Mouse_Injector.dll`, keep 8 MB / Expansion Pak enabled for PD-AI, and cold-boot the ROM.
 
 ## GoldenEye 007 Plus support
 
@@ -35,7 +41,7 @@ Watch and other menus that use directional selection respond to mouse movements 
 
 ## Install
 
-Start with [Graslu's original 1964 GEPD package](https://github.com/Graslu/1964GEPD/releases/tag/latest). Close 1964 and back up your current files, then extract the v0.2 ZIP over that folder. Replace **both** `1964.exe` and `plugin/Mouse_Injector.dll`; the matching injector is already included. Keep your existing settings file and cold-boot the ROM after upgrading.
+Start with [Graslu's original 1964 GEPD package](https://github.com/Graslu/1964GEPD/releases/tag/latest). Close 1964 and back up your current files, then extract the v0.2.1 ZIP over that folder. Replace **both** `1964.exe` and `plugin/Mouse_Injector.dll`; the matching injector is already included. Keep your existing settings, other plugins and save files, and cold-boot the ROM after upgrading. This ZIP is an update package; it does not include the complete graphics/audio plugin distribution.
 
 ## GoldenEye Plus and Perfect Dark discovery
 
@@ -56,7 +62,7 @@ user testing; automated tests also cover the supplied retail GoldenEye, Plus and
 Perfect Dark USA Rev 1 code. This is not a claim that every co-op configuration
 or third-party mod has been tested.
 
-See the [v0.2 release notes](docs/releases/automatic-mod-compatibility-v0.2.md) for changes and file hashes.
+See the [v0.2.1 release notes](docs/releases/automatic-mod-compatibility-v0.2.1.md) for changes and file hashes.
 
 ## Credits and upstream project
 
@@ -67,3 +73,4 @@ This is an unofficial modification of [Graslu's 1964 GEPD Edition](https://githu
 The unmodified 1964 0.8.5 source code is available from [SourceForge](https://sourceforge.net/projects/schibo/files/1964%200.8.5/1964-2002-0922.zip/1964-2002-0922.zip).
 
 > **Notice:** This emulator is intended specifically for GoldenEye 007 and Perfect Dark. Other Nintendo 64 games may receive no benefit or behave incorrectly. ROM files are not included.
+
