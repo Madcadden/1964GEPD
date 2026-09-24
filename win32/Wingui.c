@@ -3019,6 +3019,7 @@ typedef struct GE_HACK_RESOLUTION
 	BOOL gamevalid;
 	BOOL firingvalid;
 	BOOL guardvalid;
+	BOOL rommappingvalid;
 	BOOL dronevalid;
 	BOOL headrollvalid;
 } GE_HACK_RESOLUTION;
@@ -3241,6 +3242,45 @@ static unsigned int GEFindPause(void)
 	return match == 0 ? 0 : GEPDOperandAddress(GEReadROMWord(match + 28), GEReadROMWord(match + 36));
 }
 
+/* The native pager copies an 8 KiB page from gameSegment + (vaddr &
+ * 0x00FFE000). Authenticate that address calculation independently of the
+ * optional camping-guard fix: rewritten AI does not change the code map.
+ * Physical-code mods such as GoldenEye Plus omit this paging operation. */
+static BOOL GEHasROMCodePager(unsigned int gameSegment)
+{
+	static const unsigned int pattern[13] = {
+		0x3C0100FF, 0x3421E000, 0x00104340, 0x3C0A0000,
+		0x00414824, 0x254A0000, 0x03282021, 0xAFA40034,
+		0x012A2821, 0x01201025, 0xAFA90024, 0x0C000000,
+		0x24062000
+	};
+	static const unsigned int mask[13] = {
+		0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000,
+		0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF,
+		0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000,
+		0xFFFFFFFF
+	};
+	unsigned int offset, match = 0, source;
+	if(gameSegment < 0x1000 + sizeof(pattern) || gameSegment > gAllocationLength)
+		return FALSE;
+	/* Resident pager code precedes the paged game segment. Do not identify
+	 * instruction-like data in later maps, models or duplicated resources. */
+	for(offset = 0x1000; offset <= gameSegment - sizeof(pattern); offset += 4)
+	{
+		if(GEPatternMatches(offset, pattern, mask, 13))
+		{
+			if(match != 0)
+				return FALSE;
+			match = offset;
+		}
+	}
+	if(match == 0)
+		return FALSE;
+	source = ((GEReadROMWord(match + 12) & 0xFFFF) << 16) +
+		(int)(short)(GEReadROMWord(match + 20) & 0xFFFF);
+	return source == gameSegment;
+}
+
 static const GE_HACK_RESOLUTION *GEGetHackResolution(void)
 {
 	GE_HACK_RESOLUTION *result = &geResolution;
@@ -3296,6 +3336,7 @@ static const GE_HACK_RESOLUTION *GEGetHackResolution(void)
 		}
 	}
 
+	resolution.rommappingvalid = resolution.guardvalid || GEHasROMCodePager(gameSegment);
 	resolution.pause = GEFindPause();
 	resolution.headrollvalid = GEFindHeadRoll(resolution.headrollnop);
 	resolution.gamevalid = gameSegment != 0 && resolution.firingvalid && resolution.headrollvalid;
@@ -3303,11 +3344,12 @@ static const GE_HACK_RESOLUTION *GEGetHackResolution(void)
 #undef resolution
 }
 
-/* The fast 7F ROM map is only valid for code whose caller/callee addresses
- * corroborate that mapping. RAM-loaded mods use their real runtime TLB. */
+/* Mapping classification is independent of optional AI patch admission.
+ * Either verified mapped callers or the native ROM pager prove the map.
+ * RAM-loaded mods continue to use their real runtime TLB. */
 BOOL GEUsesROMCodeMapping(void)
 {
-	return GEGetHackResolution()->guardvalid;
+	return GEGetHackResolution()->rommappingvalid;
 }
 
 /* The emulator stores each emulated word in host byte order.  Scan only
