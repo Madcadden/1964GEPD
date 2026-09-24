@@ -1,5 +1,7 @@
 ## Changes in v0.2.2
 
+Fixes flashing or broken split-screen views in recognized GoldenEye ROM mods when using **GLideN64 with framebuffer emulation enabled**, confirmed in GoldenEye 007 Plus co-op. The emulator identifies GoldenEye's graphics engine and automatically activates GLideN64's existing correction. **Keep framebuffer emulation enabled**; no manual ROM-header edit or GLideN64 update is needed. Recognized mods also use the **GOLDENEYE** custom graphics settings and texture-pack/cache name; individual texture checksums must still match. Unknown graphics or boot layouts retain their existing behavior.
+
 Fixes the confirmed freezes and pixelated output while scrolling textures in **GoldenEye 007 Plus's Map Maker**, including scrolling backwards with **J**. Texture selection stays within the valid list, and affected IA4 textures load correctly. This correction is in the updated `1964.exe`; the included Mouse Injector v0.3.2 DLL is unchanged. It applies to the verified Plus layout and supports compatible older saves.
 
 Fixes the black screen after confirming **Exit** in GoldenEye 007 Plus’s **Native Test Mode**. Exit now returns to Map Maker with the current map intact. This correction requires the updated `1964.exe`; the included Mouse Injector v0.3.2 DLL is unchanged.
@@ -71,9 +73,9 @@ The download has been updated in place; the version remains v0.2.2.
 
 **SHA-256**
 
-- ZIP: `0c1a06529f73ef7d094e0d300dca1fa17ab3f80a616ce91b45475a748e4621d8`
-- `1964.exe`: `b8a7c2eb34aabcf404820b0883e80d06155c8df7f4d753c48594e2d7f7c111ce`
+- ZIP: `275c8514877ead4e273c2e9c8dcbedff05d3d60186fe43f29dfd6d94a48b824b`
+- `1964.exe`: `fb6fc61339172b103eaafb901c25a0b17d3c1a5216417b71fab1a86b44786322`
 - `plugin/Mouse_Injector.dll`: `9d1c3df81c70601ff9bb7e7dd97c8cfa641ef3104f844d2c4d6e727468c798fd`
 
-[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/de16c6c7adcbbd3bdb57ad920ca5a176e85e8367) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)
+[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/253a3fe398cc4faad64d6c2a101aa03166bb1501) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)
 

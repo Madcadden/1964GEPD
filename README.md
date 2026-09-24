@@ -8,6 +8,10 @@ This branch automatically locates relocated GoldenEye game segments and the firi
 
 The included **[Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)** adds FOV and input discovery, Map Maker mouse controls, and configurable N64 D-pad and shoulder buttons.
 
+## GoldenEye mod graphics
+
+Fixes flashing or broken split-screen views in recognized GoldenEye ROM mods when using **GLideN64 with framebuffer emulation enabled**, confirmed in GoldenEye 007 Plus co-op. The emulator identifies GoldenEye's graphics engine and automatically activates GLideN64's existing correction. **Keep framebuffer emulation enabled**; no manual ROM-header edit or GLideN64 update is needed. Recognized mods also use the **GOLDENEYE** custom graphics settings and texture-pack/cache name; individual texture checksums must still match. Unknown graphics or boot layouts retain their existing behavior.
+
 ## Map Maker pause-menu mouse navigation
 
 Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus's Native Test Mode. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
