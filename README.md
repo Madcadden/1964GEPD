@@ -1,14 +1,43 @@
 # 1964 GEPD 0.8.5 - Auto-Mod Edition
 
-**[Download the latest Auto-Mod Edition release](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.1)**
+**[Download Auto-Mod Edition v0.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2)** — includes Mouse Injector v0.3.
 
-1964 0.8.5 GEPD Edition with automatic compatibility support for GoldenEye 007 ROM hacks.
+1964 0.8.5 GEPD Edition with automatic compatibility support for GoldenEye 007 and Perfect Dark ROM mods.
 
 This branch automatically locates relocated GoldenEye game segments and the firing-rate and head-roll modification points instead of relying on fixed retail-ROM addresses. It also includes the corrected main-window and toolbar appearance.
 
-Use it with **[Mouse Injector Automatic Mod Compatibility v0.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.2)** for automatic mouse-control and manual-reload injection-point detection.
+The included **[Mouse Injector v0.3](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3)** adds FOV and input discovery, Map Maker mouse controls, and configurable N64 D-pad and shoulder buttons.
 
-## Development candidate: GoldenEye Plus and Perfect Dark discovery
+## GoldenEye 007 Plus support
+
+This release supports Josh's **[GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus)**, including mouse look in the Map Maker free camera and mouse navigation in its editor menus. The mod itself includes expanded **1–4-player local co-op**. Thanks to Josh and the GoldenEye Plus contributors for their work.
+
+Online co-op with a full-screen view for each player is a possible future project; it is not included in this release.
+
+### Map Maker controls
+
+Defaults with the WASD input profile:
+
+| Action | Mouse / keyboard |
+|---|---|
+| Look / move in free camera | Mouse / WASD |
+| Place or draw | Left-click / hold left-click |
+| Delete | E |
+| Rotate (N64 L shoulder) | U |
+| 2× movement speed (N64 R shoulder) | Hold O or right-click |
+| D-pad Up / Down / Left / Right | I / K / J / L |
+| Open editor menu | Enter |
+| Editor menus | Hover and left-click; right-click goes back |
+
+The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. All added buttons can be remapped in Input Settings. Keyboard **R remains reload** during gameplay; it is separate from the N64 R shoulder.
+
+Watch and other menus that use directional selection respond to mouse movements and left-click. Enter still closes the main watch. Orbit grid movement and test-preview mouse controls are not added; orbit mode retains its keyboard controls.
+
+## Install
+
+Start with [Graslu's original 1964 GEPD package](https://github.com/Graslu/1964GEPD/releases/tag/latest). Close 1964 and back up your current files, then extract the v0.2 ZIP over that folder. Replace **both** `1964.exe` and `plugin/Mouse_Injector.dll`; the matching injector is already included. Keep your existing settings file and cold-boot the ROM after upgrading.
+
+## GoldenEye Plus and Perfect Dark discovery
 
 This source adds content-based GoldenEye detection, independent player/AI/drone
 patch validation, and support for code copied into expansion RAM. ROM patches
@@ -21,9 +50,13 @@ games. The more invasive PD combat-boost/guard timing shim remains restricted
 to the verified USA Rev 1 layout, with complete original-code checks.
 
 Unrecognized or ambiguous instructions are skipped. This does not guarantee
-support for every rewritten mod. Cold-boot the ROM after replacing both the
-emulator and injector. Old save states cannot validate the new boot patches.
-Source and synthetic-memory tests do not replace Windows gameplay testing.
+support for every rewritten mod. Old save states can retain old code and do not
+validate the new boot patches. GoldenEye Plus operation has been confirmed by
+user testing; automated tests also cover the supplied retail GoldenEye, Plus and
+Perfect Dark USA Rev 1 code. This is not a claim that every co-op configuration
+or third-party mod has been tested.
+
+See the [v0.2 release notes](docs/releases/automatic-mod-compatibility-v0.2.md) for changes and file hashes.
 
 ## Credits and upstream project
 
