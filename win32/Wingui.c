@@ -3133,11 +3133,11 @@ static BOOL GEFindHeadRoll(unsigned int *offsets)
 typedef struct GE_ROM_PATCH_GROUP
 {
 	unsigned int count;
-	unsigned int offsets[20];
-	unsigned int original[20];
-	unsigned int patched[20];
+	unsigned int offsets[71];
+	unsigned int original[71];
+	unsigned int patched[71];
 } GE_ROM_PATCH_GROUP;
-static GE_ROM_PATCH_GROUP geROMPatchGroups[4];
+static GE_ROM_PATCH_GROUP geROMPatchGroups[5];
 static unsigned char *geROMPatchOwner = NULL;
 static unsigned int geROMPatchLength = 0;
 
@@ -3160,7 +3160,7 @@ void GEPDRestoreROMHacks(void)
 	if(geROMPatchOwner != NULL && geROMPatchOwner == gMemoryState.ROM_Image &&
 		geROMPatchLength == gAllocationLength)
 	{
-		for(group = 0; group < 4; group++)
+		for(group = 0; group < 5; group++)
 		{
 			record = &geROMPatchGroups[group];
 			for(index = 0; index < record->count; index++)
@@ -3390,6 +3390,192 @@ static void GEPDWriteRAMCode(unsigned int address, unsigned int value)
 		if((unsigned char *)TLB_sDWORD_R[page] == backing)
 			InvalidateOneBlock(page << 12);
 	LOAD_UWORD_PARAM(address) = value;
+}
+
+/* Native Test return: exact validated physical-code layout only. The old
+ * title initializer retained a stale pending menu after a test ended. Reuse
+ * its native completed-test reset and queue editor page 30 after teardown.
+ * This is the exact user-validated 284-byte initializer; no map data changes. */
+#define GE_EDITOR_TITLE_ROM 0x00035850U
+#define GE_EDITOR_TITLE_RAM 0x80600D20U
+#define GE_EDITOR_TITLE_WORDS 71U
+static const unsigned int geeditororiginal[71] = {
+	0x2402FFFF, 0x3C018003, 0xAC22A8F0, 0x3C018003, 0xAC22A8F8, 0x3C018003,
+	0xAC20A970, 0x24030001, 0x3C018003, 0xAC23A974, 0x3C018003, 0xAC20A978,
+	0x3C018003, 0xAC20A948, 0x3C018003, 0xAC22A94C, 0x3C018003, 0xAC23A950,
+	0x3C018003, 0xAC20A90C, 0x3C018003, 0xAC20A910, 0x3C0E8003, 0x8DCEA964,
+	0x3C018003, 0xAC20A914, 0x27BDFFE8, 0x3C018003, 0xAFBF0014, 0x11C00005,
+	0xAC23A96C, 0x3C028003, 0x2442A8F4, 0x240F0005, 0xAC4F0000, 0x3C028003,
+	0x2442A8F4, 0x8C580000, 0x3C040007, 0x24190005, 0x07010002, 0x34848000,
+	0xAC590000, 0x0C002570, 0x24050004, 0x3C018003, 0x3C040004, 0xAC22A980,
+	0x3484B040, 0x0C002570, 0x24050004, 0x3C038003, 0x2449003F, 0x2401FFC0,
+	0x2463A984, 0x01215024, 0xAC620000, 0xAC6A0000, 0x3C018003, 0xAC20A98C,
+	0x3C018003, 0xAC20A990, 0x3C018003, 0xAC20A994, 0x3C018003, 0x0C18031C,
+	0xAC20A998, 0x8FBF0014, 0x27BD0018, 0x03E00008, 0x00000000
+};
+static const unsigned int geeditorpatched[71] = {
+	0x2402FFFF, 0x3C018003, 0xAC22A8F0, 0xAC22A8F8, 0xAC20A970, 0x24030001,
+	0xAC23A974, 0xAC20A978, 0xAC20A948, 0xAC22A94C, 0xAC23A950, 0xAC20A90C,
+	0xAC20A910, 0x3C0E8003, 0x8DCEA964, 0xAC20A914, 0x27BDFFE8, 0xAFBF0014,
+	0x11C00005, 0xAC23A96C, 0x3C028003, 0x2442A8F4, 0x240F0005, 0xAC4F0000,
+	0x3C028003, 0x2442A8F4, 0x8C580000, 0x07010002, 0x24190005, 0xAC590000,
+	0x0C18BDE2, 0x00000000, 0x10400006, 0x00000000, 0x0C18BDED, 0x00000000,
+	0x3C018003, 0x240E001E, 0xAC2EA8F4, 0x3C040007, 0x34848000, 0x0C002570,
+	0x24050004, 0x3C018003, 0x3C040004, 0xAC22A980, 0x3484B040, 0x0C002570,
+	0x24050004, 0x3C038003, 0x2449003F, 0x2401FFC0, 0x2463A984, 0x01215024,
+	0xAC620000, 0xAC6A0000, 0x3C018003, 0xAC20A98C, 0xAC20A990, 0xAC20A994,
+	0x0C18031C, 0xAC20A998, 0x8FBF0014, 0x27BD0018, 0x03E00008, 0x00000000,
+	0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+};
+static const unsigned int geeditorhelpers[87] = {
+	0x3C028007, 0x03E00008, 0x8C42E040, 0x3C028007, 0x8C42E040, 0x0002702B,
+	0x11C0000F, 0x01C01025, 0x3C028007, 0x8C42E044, 0x0002782B, 0x11E0000A,
+	0x01E01025, 0x3C028007, 0x8C42E04C, 0x0002C02B, 0x13000005, 0x03001025,
+	0x3C028007, 0x8C42E050, 0x0002C82B, 0x03201025, 0x03E00008, 0x00000000,
+	0x3C0E8007, 0x8DCEE040, 0x240F0001, 0x3C018007, 0x11C00002, 0x00000000,
+	0xAC2FE044, 0x03E00008, 0x00000000, 0x3C0E8007, 0x8DCEE040, 0x240F0001,
+	0x3C018007, 0x11C00008, 0x00000000, 0xAC2FE048, 0x3C018007, 0xAC20E044,
+	0x3C018007, 0xAC20E04C, 0x3C018007, 0xAC20E050, 0x03E00008, 0x00000000,
+	0x3C028007, 0x8C42E040, 0x0002702B, 0x11C00005, 0x01C01025, 0x3C028007,
+	0x8C42E048, 0x0002782B, 0x01E01025, 0x03E00008, 0x00000000, 0x3C018007,
+	0xAC20E040, 0x3C018007, 0xAC20E044, 0x3C018007, 0xAC20E048, 0x3C018007,
+	0xAC20E04C, 0x44800000, 0x3C018007, 0xAC20E050, 0x3C018007, 0xE420E078,
+	0x3C018007, 0xE420E07C, 0x3C018007, 0xE420E080, 0x3C018007, 0xAC20E058,
+	0x3C018007, 0xAC20E05C, 0x3C018007, 0xAC20E060, 0x3C018007, 0xAC20E064,
+	0x3C018007, 0x03E00008, 0xAC20E054
+};
+static const unsigned int geeditortitlecaller[8] = {
+	0x8FAF0038, 0x2401005A, 0x15E10005, 0x00000000, 0x0C180348, 0x00000000,
+	0x10000079, 0x00000000
+};
+static const unsigned int geeditoreditorinit[20] = {
+	0x27BDFFE8, 0xAFBF0014, 0x0C182F9C, 0x00000000, 0x3C048003, 0x8C84A980,
+	0x3C010003, 0x3421119F, 0x00812021, 0x348E003F, 0x39C4003F, 0x240501B8,
+	0x0C1BE2AE, 0x2406014A, 0x0C18B603, 0x00000000, 0x8FBF0014, 0x27BD0018,
+	0x03E00008, 0x00000000
+};
+static const unsigned int geeditormapheader[22] = {
+	0x3C028040, 0x8C420000, 0x3C014D4D, 0x34215331, 0x00417026, 0x03E00008,
+	0x2DC20001, 0x27BDFFE8, 0xAFBF0014, 0x3C048040, 0x3C060003, 0x34C6E888,
+	0x24840000, 0x0C005EAC, 0x00002825, 0x8FBF0014, 0x3C0E4D4D, 0x35CE5331,
+	0x3C018040, 0xAC2E0000, 0x03E00008, 0x27BD0018
+};
+static const unsigned int geeditorpreservemap[14] = {
+	0x27BDFFD8, 0xAFBF0014, 0x3C018005, 0x0C19CB00, 0xC42C44B8, 0x3C0E8007,
+	0x8DCEDFC8, 0xE7A00018, 0x11C00005, 0x00000000, 0x0C18B5ED, 0x00000000,
+	0x1440003F, 0x00000000
+};
+static const unsigned int geeditornativereturn[11] = {
+	0x0C18BDE2, 0x00000000, 0x1040000A, 0x3C088003, 0x0C18BDED, 0x00000000,
+	0x0C001B47, 0x24040017, 0x2404001E, 0x0C1881BB, 0x24050001
+};
+static const unsigned int geeditordispatch[9] = {
+	0x8C980000, 0x2F01001F, 0x1020009B, 0x0018C080, 0x3C018005, 0x00380821,
+	0x8C382C20, 0x03000008, 0x00000000
+};
+static const unsigned int geeditoreditorhandler[5] = {
+	0x0C1874C8, 0x00000000, 0x3C048003, 0x1000000F, 0x2484A8F0
+};
+typedef struct GE_EDITOR_CONTEXT
+{
+	unsigned int rom, ram, words;
+	const unsigned int *expected;
+} GE_EDITOR_CONTEXT;
+static const GE_EDITOR_CONTEXT geeditorcontexts[] = {
+	{0x000641F8U, 0x8062F6C8U, 87U, geeditorhelpers},
+	{0x00116588U, 0x806E1A58U, 8U, geeditortitlecaller},
+	{0x00051E50U, 0x8061D320U, 20U, geeditoreditorinit},
+	{0x000622E4U, 0x8062D7B4U, 22U, geeditormapheader},
+	{0x0006233CU, 0x8062D80CU, 14U, geeditorpreservemap},
+	{0x00055C14U, 0x806210E4U, 11U, geeditornativereturn},
+	{0x00055778U, 0x80620C48U, 9U, geeditordispatch},
+	{0x000559A4U, 0x80620E74U, 5U, geeditoreditorhandler},
+};
+
+static BOOL GEEditorWordsMatch(BOOL ram, unsigned int address,
+	const unsigned int *expected, unsigned int words)
+{
+	unsigned int index, offset = address;
+	unsigned int length = ram ? current_rdram_size : gAllocationLength;
+	if(ram)
+	{
+		if(address < 0x80000000U || address >= 0x80800000U)
+			return FALSE;
+		offset = address - 0x80000000U;
+	}
+	if(offset > length || words > (length - offset) / 4)
+		return FALSE;
+	for(index = 0; index < words; index++)
+		if((ram ? LOAD_UWORD_PARAM(address + index * 4) :
+			GEReadROMWord(address + index * 4)) != expected[index])
+			return FALSE;
+	return TRUE;
+}
+
+static BOOL GEEditorContextMatches(BOOL ram)
+{
+	unsigned int index;
+	for(index = 0; index < sizeof(geeditorcontexts) / sizeof(geeditorcontexts[0]); index++)
+	{
+		const GE_EDITOR_CONTEXT *context = &geeditorcontexts[index];
+		if(!GEEditorWordsMatch(ram, ram ? context->ram : context->rom,
+			context->expected, context->words))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static BOOL GEEditorPCInTitle(unsigned int pc)
+{
+	return pc >= GE_EDITOR_TITLE_RAM &&
+		pc < GE_EDITOR_TITLE_RAM + GE_EDITOR_TITLE_WORDS * 4;
+}
+
+static void GEReconcileNativeEditorReturn(void)
+{
+	unsigned int index;
+	BOOL original;
+	/* CPU-thread entry/VI/resume only, after IPL validation. Physical code
+	 * needs 8 MiB; never admit this repair through ROM-map classification. */
+	if(!gepdGameEntryReached || emustatus.game_hack != GHACK_GE ||
+		gMemoryState.ROM_Image == NULL || gMS_RDRAM == NULL ||
+		rominfo.TV_System != TV_SYSTEM_NTSC || current_rdram_size < 0x800000U ||
+		GEUsesROMCodeMapping() || !GEEditorContextMatches(FALSE))
+		return;
+	original = GEEditorWordsMatch(FALSE, GE_EDITOR_TITLE_ROM,
+		geeditororiginal, GE_EDITOR_TITLE_WORDS);
+	if(!original && !GEEditorWordsMatch(FALSE, GE_EDITOR_TITLE_ROM,
+		geeditorpatched, GE_EDITOR_TITLE_WORDS))
+		return;
+	if(original)
+	{
+		/* Journal the complete group, including unchanged words. An external
+		 * edit to any word transfers ownership and prevents partial restore. */
+		for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
+			GERecordROMPatch(4, index, GE_EDITOR_TITLE_ROM + index * 4,
+				geeditorpatched[index]);
+		for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
+			GEWriteROMWord(GE_EDITOR_TITLE_ROM + index * 4, geeditorpatched[index]);
+	}
+	/* A restored save carries resident code independently of the ROM. Only
+	 * replace the complete original function after validating its native
+	 * helper and editor dispatch context in the live image. Mixed code is opaque. */
+	if(!GEEditorWordsMatch(TRUE, GE_EDITOR_TITLE_RAM,
+		geeditororiginal, GE_EDITOR_TITLE_WORDS) || !GEEditorContextMatches(TRUE) ||
+		LOAD_UWORD_PARAM(0x80052C98U) != 0x80620E74U)
+		return;
+	/* An old save can be inside the initializer, or inside its allocator
+	 * with a return into the old layout. The initializer clears current menu
+	 * before its first call. Defer until that active frame has completed. */
+	if(GEEditorPCInTitle((unsigned int)gHWS_pc) ||
+		(((unsigned int)gHWS_COP0Reg[STATUS] & 2U) &&
+		 GEEditorPCInTitle((unsigned int)gHWS_COP0Reg[EPC])) ||
+		(LOAD_UWORD_PARAM(0x800241A8U) == 0x5AU &&
+		 LOAD_UWORD_PARAM(0x8002A8F0U) == 0xFFFFFFFFU))
+		return;
+	for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
+		if(geeditororiginal[index] != geeditorpatched[index])
+			GEPDWriteRAMCode(GE_EDITOR_TITLE_RAM + index * 4, geeditorpatched[index]);
 }
 
 static void GEPatchRAMFiringRate(void)
@@ -3650,6 +3836,7 @@ void GEPDApplyPendingHacks(void)
 		return;
 	if(emustatus.game_hack == GHACK_GE)
 	{
+		GEReconcileNativeEditorReturn();
 		if(emuoptions.GEFiringRateHack && emuoptions.OverclockFactor != 1)
 			GEFiringRateHack();
 		if(emuoptions.GEDisableHeadRoll)
