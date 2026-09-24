@@ -43,7 +43,7 @@ The active tool determines the D-pad action, including module, layer or texture 
 
 Directional multiplayer and confirmation menus respond to mouse movements and left-click. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
 
-For watch-menu mouse navigation limited to GoldenEye 007 Plus, use the corrected [v0.2.2 release](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2).
+For mouse navigation limited to GoldenEye 007 Plus's Map Maker editing pause menus, with regular gameplay watches using keyboard/controller navigation, use the corrected [v0.2.2 release](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2).
 
 ## Compatibility
 

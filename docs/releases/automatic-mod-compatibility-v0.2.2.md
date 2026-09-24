@@ -1,6 +1,6 @@
 ## Changes in v0.2.2
 
-Watch-menu mouse navigation is available **only in GoldenEye 007 Plus**, where the Map Maker options are located. Other GoldenEye ROMs keep keyboard/controller navigation in the watch. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
+Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
 **Josh's [GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus) is now supported**, including mouse controls for its Map Maker and menus. GoldenEye Plus also includes **1–4-player local co-op**, developed by Josh and the mod's contributors.
 
@@ -10,7 +10,7 @@ This build automatically finds GoldenEye's relocated game segment and the correc
 
 - Supports GoldenEye Plus detection, copied game code, FOV and player firing-rate patches.
 - Adds Map Maker free-camera mouse look and mouse selection in the Basic/Advanced chooser and editor menu.
-- Adds mouse navigation to GoldenEye 007 Plus's watch menu, plus multiplayer and confirmation menus that use directional input.
+- Adds mouse navigation to GoldenEye 007 Plus's Map Maker editing pause menus, plus multiplayer and confirmation menus that use directional input.
 - Adds configurable D-pad and L/R shoulder bindings. Existing settings migrate without resetting your controls or FOV.
 - Makes R usable for Plus's native interact/reload action during gameplay; E retains its native action.
 - Improves Perfect Dark FOV/settings discovery and automatically locates its 60 FPS and head-roll controls. The menu now labels Disable Head Roll for GE/PD.
@@ -33,7 +33,7 @@ Defaults with the WASD input profile:
 
 The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. Buttons can be remapped in Input Settings. **Keyboard R remains reload** during gameplay, separate from the N64 R shoulder.
 
-In **GoldenEye 007 Plus only**, the watch menu responds to mouse movements and left-click; Enter closes the main watch. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+The Map Maker's editing pause menus support mouse navigation. Regular gameplay watch menus, including those in Plus, retain keyboard/controller navigation. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
 
 ## Compatibility
 
@@ -71,8 +71,8 @@ The download has been updated in place; the version remains v0.2.2.
 
 **SHA-256**
 
-- ZIP: `e4169c0ab6bd724e3f05e887764be0c710aebf50b531f8b8734fe682cfb02320`
+- ZIP: `dd24053b6efe82dd1bbb181ab26106e0081be5ce6e2229639c424634b33f5cf7`
 - `1964.exe`: `e40a096f00d0843a58af6ff5eb84cdbdad8de9c2416b92692460865b5aca4490`
-- `plugin/Mouse_Injector.dll`: `cc33aac5b6110821ea3f9865179c2e1dbf02a1cbbbbfb6321061bc30ab2a8e63`
+- `plugin/Mouse_Injector.dll`: `9d1c3df81c70601ff9bb7e7dd97c8cfa641ef3104f844d2c4d6e727468c798fd`
 
-[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/93af8d107c5d9135a70d7a4d1667c55b0646dd20) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/c24f18c3b33c4a916a7498dffd6fba6e1c94b481)
+[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/93af8d107c5d9135a70d7a4d1667c55b0646dd20) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)

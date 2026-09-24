@@ -8,9 +8,9 @@ This branch automatically locates relocated GoldenEye game segments and the firi
 
 The included **[Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)** adds FOV and input discovery, Map Maker mouse controls, and configurable N64 D-pad and shoulder buttons.
 
-## Watch-menu mouse navigation
+## Map Maker pause-menu mouse navigation
 
-Watch-menu mouse navigation is available **only in GoldenEye 007 Plus**, where the Map Maker options are located. Other GoldenEye ROMs keep keyboard/controller navigation in the watch. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
+Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
 The v0.2.2 download has been updated in place with the corrected Mouse Injector v0.3.2. The emulator executable is unchanged; existing v0.2.2 users can replace only `plugin/Mouse_Injector.dll` and cold-boot the ROM.
 
@@ -37,7 +37,7 @@ Defaults with the WASD input profile:
 
 The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. All added buttons can be remapped in Input Settings. Keyboard **R remains reload** during gameplay; it is separate from the N64 R shoulder.
 
-In **GoldenEye 007 Plus only**, the watch menu responds to mouse movements and left-click; Enter closes the main watch. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+The Map Maker's editing pause menus support mouse navigation. Regular gameplay watch menus, including those in Plus, retain keyboard/controller navigation. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
 
 ## Install
 
