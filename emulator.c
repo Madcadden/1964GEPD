@@ -97,7 +97,7 @@ void Mute()
 
 /*
  =======================================================================================================================
-    Called by GUI thread to start emulating £
+    Called by GUI thread to start emulating Â£
  =======================================================================================================================
  */
 void RunEmulator(uint32 core)
@@ -127,7 +127,7 @@ void RunEmulator(uint32 core)
 
 /*
  =======================================================================================================================
-    Called by GUI thread to pause emulating £
+    Called by GUI thread to pause emulating Â£
  =======================================================================================================================
  */
 BOOL PauseEmulator(void)
@@ -193,10 +193,10 @@ step2:
 
 /*
  =======================================================================================================================
-    Called by GUI thread to resume emulating from pausing £
-    the global variable "needinit" is to pass information to the CPU thread £
-    to do InitEmu() in CPU thread. Reason behind this is that OpenGL is thread-safe, £
-	initialization must be done in the CPU thread £
+    Called by GUI thread to resume emulating from pausing Â£
+    the global variable "needinit" is to pass information to the CPU thread Â£
+    to do InitEmu() in CPU thread. Reason behind this is that OpenGL is thread-safe, Â£
+	initialization must be done in the CPU thread Â£
  =======================================================================================================================
  */
 void ResumeEmulator(int action_after_pause)
@@ -225,7 +225,7 @@ void ResumeEmulator(int action_after_pause)
 
 /*
  =======================================================================================================================
-    Called by GUI thread to stop emulating £
+    Called by GUI thread to stop emulating Â£
  =======================================================================================================================
  */
 void StopEmulator(void)
@@ -278,7 +278,7 @@ void StopEmulator(void)
 
 /*
  =======================================================================================================================
-    Called by GUI thread to switch CPU core while emulating £
+    Called by GUI thread to switch CPU core while emulating Â£
  =======================================================================================================================
  */
 void EmulatorSetCore(int core)
@@ -304,9 +304,9 @@ void EmulatorSetCore(int core)
 }
 
 /*
- * All functions above are called by GUI £
- * All functions below are used in the CPU thread £
- * £
+ * All functions above are called by GUI Â£
+ * All functions below are used in the CPU thread Â£
+ * Â£
  */
 uint32	RDRamSizeHackSavedDWord1 = 0;
 uint32	RDRamSizeHackSavedDWord2 = 0;
@@ -340,7 +340,7 @@ void CloseEmulator(void)
 
 /*
  =======================================================================================================================
-    £
+    Â£
  =======================================================================================================================
  */
 void RefreshDynaDuringGamePlay(void)
@@ -401,7 +401,7 @@ void InitEmu(void)
 
 /*
  =======================================================================================================================
-    This function is called at the beginning of emulating, runs until boot successfully £
+    This function is called at the beginning of emulating, runs until boot successfully Â£
  =======================================================================================================================
  */
 void N64_Boot(void)
@@ -461,9 +461,9 @@ void N64_Boot(void)
 				OPCODE_DEBUGGER_EPILOGUE(*(uint32 *) &gMS_RDRAM[rominfo.RDRam_Size_Hack] = current_rdram_size;) RDRamSizeHackSavedDWord2 = *(uint32 *) &gMS_RDRAM[0x2FE1C0];
 
 				/*
-				 * Azimer - DK64 Hack to break out of infinite loop £
-				 * I believe this memory location is some sort of copyright protection which £
-				 * is written to using the RSP on bootup. The only issue I see is if it £
+				 * Azimer - DK64 Hack to break out of infinite loop Â£
+				 * I believe this memory location is some sort of copyright protection which Â£
+				 * is written to using the RSP on bootup. The only issue I see is if it Â£
 				 * affects any other roms?
 				 */
 				if(strncmp(currentromoptions.Game_Name, "DONKEY KONG 64", 14) == 0)
@@ -512,7 +512,7 @@ void N64_Boot(void)
 void __cdecl	LogDyna(char *debug, ...);
 
 /*
- * This is the entry point for CPU emulating thread £
+ * This is the entry point for CPU emulating thread Â£
  */
 void (__cdecl StartCPUThread) (void *pVoid)
 {
@@ -564,8 +564,8 @@ START_CPU_THREAD:
 		if(emustatus.reason_to_stop == EMUPAUSE)
 		{
 			/*
-			 * If user is saving state after pausing, need to update the COUNT register here £
-			 * so we can return back to the original timer value £
+			 * If user is saving state after pausing, need to update the COUNT register here Â£
+			 * so we can return back to the original timer value Â£
 			 * This make Donkey Kong can be saved state
 			 */
 			gHWS_COP0Reg[COUNT] = Get_COUNT_Register();
@@ -582,7 +582,7 @@ START_CPU_THREAD:
 
 /*
  =======================================================================================================================
-    Use in CPU thread, will pausing emu and wait for resume £
+    Use in CPU thread, will pausing emu and wait for resume Â£
  =======================================================================================================================
  */
 void PauseEmulating(void)
@@ -594,7 +594,7 @@ void PauseEmulating(void)
 		Sleep(200);
 
 		/*
-		 * VIDEO_UpdateScreen(); £
+		 * VIDEO_UpdateScreen(); Â£
 		 * VIDEO_DrawScreen();
 		 */
 	}
@@ -608,7 +608,13 @@ void PauseEmulating(void)
 		if(emustatus.action_after_resume == INIT_EMU_AFTER_PAUSE)
 			InitEmu();
 		else if(emustatus.action_after_resume == REFRESH_DYNA_AFTER_PAUSE)
+		{
 			RefreshDynaDuringGamePlay();
+			/* Restored RAM may contain original physical game code. Reconcile
+			 * on this CPU thread before executing its first resumed block. */
+			GEPDQueueRuntimeHacks();
+			GEPDApplyPendingHacks();
+		}
 
 		/* else //do nothing */
 	}
@@ -616,7 +622,7 @@ void PauseEmulating(void)
 
 /*
  =======================================================================================================================
-    This is a main loop for emulating in interpreter £
+    This is a main loop for emulating in interpreter Â£
  =======================================================================================================================
  */
 void RunTheInterpreter(void)
@@ -662,7 +668,7 @@ out:
 }
 
 /*
- * This is a main loop for emulating in Dynarec £
+ * This is a main loop for emulating in Dynarec Â£
  */
 uint32	HardwareStart = (uint32) & gHardwareState + 128;
 
@@ -830,8 +836,8 @@ l3 :
 
 /*
  =======================================================================================================================
-    Check and execute all other tasks, called by emulating main loop £
-    Will do DMA, interrupt checking and so on. £
+    Check and execute all other tasks, called by emulating main loop Â£
+    Will do DMA, interrupt checking and so on. Â£
  =======================================================================================================================
  */
 void CPU_Check_Interrupts(void)
@@ -962,7 +968,7 @@ void ClearCPUTasks(void)
 
 /*
  =======================================================================================================================
-    Step and run one opcode in interpreter mode £
+    Step and run one opcode in interpreter mode Â£
  =======================================================================================================================
  */
 void InterpreterStepCPU(void)
@@ -1004,8 +1010,8 @@ void InterpreterStepCPU(void)
 
 /*
  =======================================================================================================================
-    Return the instruction at current PC £
-    This is a utility function, called by some debug function £
+    Return the instruction at current PC Â£
+    This is a utility function, called by some debug function Â£
  =======================================================================================================================
  */
 uint32 FetchInstruction(void)
@@ -1062,7 +1068,7 @@ uint32 FetchInstruction(void)
 
 /*
  =======================================================================================================================
-    This inline function will run a block of code in Dyna, will compile it first if needed £
+    This inline function will run a block of code in Dyna, will compile it first if needed Â£
  =======================================================================================================================
  */
 void RunDynaBlock(void)
@@ -1140,7 +1146,7 @@ void RunDynaBlock(void)
 extern void __cdecl error(char *Message, ...);
 /*
  =======================================================================================================================
-    This routine serves exceptions in dynarec £
+    This routine serves exceptions in dynarec Â£
     This service routine could be re-entered
  =======================================================================================================================
  */
@@ -1166,7 +1172,7 @@ void Dyna_Exception_Service_Routine(uint32 vector)
 		else
 		{
 			/*
-			 * If exception is within another exception, service the exception £
+			 * If exception is within another exception, service the exception Â£
 			 * without setting EPC
 			 */
 			gHWS_COP0Reg[EPC] = gHWS_pc;
