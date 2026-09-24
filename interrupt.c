@@ -553,6 +553,8 @@ void Trigger_VIInterrupt(void)
 #endif
 	}
 	
+	GEPDApplyPendingHacks();
+
 	/* Apply the PD 60fps NTSC timing hack */
 	if(emuoptions.PDSpeedHack && emuoptions.OverclockFactor != 1 && rominfo.TV_System == TV_SYSTEM_NTSC)
 		PDTimingHack();

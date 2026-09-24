@@ -1,0 +1,31 @@
+# Install as .github/workflows/emulator-windows.yml in the emulator repository.
+# Install build_emulator.ps1 as tools/build_emulator.ps1 in that repository.
+name: Build Windows emulator candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/auto-mod-*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build Release Win32 and record hashes
+        shell: pwsh
+        run: ./tools/build_emulator.ps1 -SourceRoot . -OutputDirectory ./candidate
+      - name: Upload candidate and build verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: 1964-win32-candidate-${{ github.sha }}
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 14

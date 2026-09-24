@@ -45,6 +45,7 @@
 #include "../timer.h"
 #include "../romlist.h"
 #include "../cheatcode.h"
+#include "../compiler.h"
 
 #ifdef WINDEBUG_1964
 #include "windebug.h"
@@ -189,15 +190,7 @@ void CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 
 				if(rominfo.TV_System == TV_SYSTEM_NTSC) // if USA ROM
 				{
-					if(emustatus.game_hack == GHACK_GE)
-					{
-						if(emuoptions.GEFiringRateHack && (emuoptions.OverclockFactor != 1))
-							GEFiringRateHack();
-						if(emuoptions.GEDisableHeadRoll)
-							GEDisableHeadRoll();
-					}
-					else if(emuoptions.PDSpeedHack && (emuoptions.OverclockFactor != 1) && (emustatus.game_hack == GHACK_PD))
-						PDSpeedHack();
+					GEPDQueueRuntimeHacks();
 					if(emustatus.gepd_pause)
 					{
 						emustatus.gepd_pause--;
@@ -3021,7 +3014,11 @@ typedef struct GE_HACK_RESOLUTION
 	unsigned int updateaimtargetreturn;
 	unsigned int dronegunfiringrate;
 	unsigned int headrollnop[6];
+	unsigned int pause;
+	BOOL gamevalid;
 	BOOL firingvalid;
+	BOOL guardvalid;
+	BOOL dronevalid;
 	BOOL headrollvalid;
 } GE_HACK_RESOLUTION;
 
@@ -3129,13 +3126,70 @@ static BOOL GEFindHeadRoll(unsigned int *offsets)
 	return TRUE;
 }
 
+static GE_HACK_RESOLUTION geResolution;
+static BOOL geResolutionInitialized = FALSE;
+static unsigned int geRAMFiringSite = 0;
+static unsigned int geRAMFiringContext[9];
+static unsigned int pdSpeedSite = 0;
+static unsigned int pdHeadRollSite = 0;
+static unsigned int pdHeadRollContext[9];
+static BOOL alreadypaused = FALSE;
+static unsigned int gepdPauseAddress = 0;
+static volatile LONG gepdPatchesPending = 0;
+static BOOL gepdGameEntryReached = FALSE;
+static unsigned int pdSpeedContext[27];
+static unsigned int geRAMHeadRollSite = 0;
+static unsigned int geRAMHeadRollContext[12];
+
+/* A new boot must never inherit addresses from another image with the same CRC. */
+static void GEPDResetHackResolution(void)
+{
+	memset(&geResolution, 0, sizeof(geResolution));
+	geResolutionInitialized = FALSE;
+	geRAMFiringSite = 0;
+	geRAMHeadRollSite = 0;
+	pdSpeedSite = 0;
+	pdHeadRollSite = 0;
+	alreadypaused = FALSE;
+	gepdPauseAddress = 0;
+	gepdGameEntryReached = FALSE;
+	InterlockedExchange(&gepdPatchesPending, 1);
+}
+
+static const unsigned int gepausepattern[12] = {0x3C013F80, 0x44816000, 0x24020001, 0x3C010000, 0x27BDFFC8, 0xAC220000, 0xAFB10024, 0x3C010000, 0x3C110000, 0xAC200000, 0x26310000, 0xAE220000};
+static const unsigned int gepausealternate[12] = {0x3C013F80, 0x44816000, 0x24020001, 0x3C010000, 0x27BDFFC8, 0xAC220000, 0xAFB00020, 0x3C010000, 0x3C100000, 0xAC200000, 0x26100000, 0xAE020000};
+static const unsigned int gepausemask[12] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF};
+
+static unsigned int GEPDOperandAddress(unsigned int upper, unsigned int lower)
+{
+	unsigned int address = (upper << 16) + (int)(short)(lower & 0xFFFF);
+	if((address & 3) != 0 || address < 0x80000000 || address > 0x807FFFFC)
+		return 0;
+	return address;
+}
+
+static unsigned int GEFindPause(void)
+{
+	unsigned int offset, match = 0;
+	if(gAllocationLength < 48)
+		return 0;
+	for(offset = 0x1000; offset <= gAllocationLength - 48; offset += 4)
+	{
+		if(GEPatternMatches(offset, gepausepattern, gepausemask, 12) ||
+			GEPatternMatches(offset, gepausealternate, gepausemask, 12))
+		{
+			if(match != 0)
+				return 0;
+			match = offset;
+		}
+	}
+	return match == 0 ? 0 : GEPDOperandAddress(GEReadROMWord(match + 28), GEReadROMWord(match + 36));
+}
+
 static const GE_HACK_RESOLUTION *GEGetHackResolution(void)
 {
-	static GE_HACK_RESOLUTION resolution;
-	static unsigned int cachedcrc1 = 0;
-	static unsigned int cachedcrc2 = 0;
-	static unsigned int cachedcountry = 0;
-	static BOOL initialized = FALSE;
+	GE_HACK_RESOLUTION *result = &geResolution;
+#define resolution (*result)
 	unsigned int gameSegment;
 	unsigned int updateAimTarget;
 	unsigned int firingRateContext;
@@ -3144,14 +3198,11 @@ static const GE_HACK_RESOLUTION *GEGetHackResolution(void)
 	unsigned int continuationDelta;
 	unsigned int continuationAddress;
 
-	if(initialized && cachedcrc1 == currentromoptions.crc1 && cachedcrc2 == currentromoptions.crc2 && cachedcountry == currentromoptions.countrycode)
+	if(geResolutionInitialized)
 		return &resolution;
 
 	memset(&resolution, 0, sizeof(resolution));
-	initialized = TRUE;
-	cachedcrc1 = currentromoptions.crc1;
-	cachedcrc2 = currentromoptions.crc2;
-	cachedcountry = currentromoptions.countrycode;
+	geResolutionInitialized = TRUE;
 
 	gameSegment = GEFindUniqueROMPattern(gegamesegmentpattern, gegamesegmentmask, 5);
 	updateAimTarget = GEFindUniqueROMPattern(geupdateaimtargetpattern, geupdateaimtargetmask, 20);
@@ -3159,23 +3210,157 @@ static const GE_HACK_RESOLUTION *GEGetHackResolution(void)
 	droneFiringRate = GEFindUniqueROMPattern(gedronepattern, geexactmask5, 5);
 	continuation = GEFindUniqueROMPattern(gecontinuationpattern, gecontinuationmask, 8);
 
-	if(gameSegment != 0 && updateAimTarget != 0 && firingRateContext != 0 && droneFiringRate != 0 && continuation >= gameSegment)
+	/* Independent fixes: a mod's rewritten drone or AI code must not disable
+	 * the separately identified player weapon delay. */
+	if(firingRateContext != 0)
+	{
+		resolution.readfiringrate = firingRateContext + 0x10;
+		resolution.firingvalid = TRUE;
+	}
+	if(droneFiringRate != 0)
+	{
+		resolution.dronegunfiringrate = droneFiringRate;
+		resolution.dronevalid = TRUE;
+	}
+
+	if(gameSegment != 0 && updateAimTarget >= gameSegment && continuation >= gameSegment + 8)
 	{
 		continuationDelta = continuation - gameSegment;
 		continuationAddress = 0x7F000000 + continuationDelta;
 		resolution.updateaimtargetjal = GEReadROMWord(updateAimTarget + 0x30);
-		if((resolution.updateaimtargetjal & 0xFC000000) == 0x0C000000 && continuationDelta < 0x01000000)
+		/* Bind the continuation to a call of this exact mapped-ROM function.
+		 * RAM-loaded or rewritten AI must retain its own control flow. */
+		if((resolution.updateaimtargetjal & 0xFC000000) == 0x0C000000 &&
+			continuationDelta < 0x01000000 &&
+			GEReadROMWord(continuation - 8) == (0x0C000000 |
+			(((0x7F000000 + updateAimTarget - gameSegment) >> 2) & 0x03FFFFFF)))
 		{
-			resolution.readfiringrate = firingRateContext + 0x10;
 			resolution.updateaimtarget = updateAimTarget;
 			resolution.updateaimtargetreturn = 0x08000000 | ((continuationAddress >> 2) & 0x03FFFFFF);
-			resolution.dronegunfiringrate = droneFiringRate;
-			resolution.firingvalid = TRUE;
+			resolution.guardvalid = TRUE;
 		}
 	}
 
+	resolution.pause = GEFindPause();
 	resolution.headrollvalid = GEFindHeadRoll(resolution.headrollnop);
+	resolution.gamevalid = gameSegment != 0 && resolution.firingvalid && resolution.headrollvalid;
 	return &resolution;
+#undef resolution
+}
+
+/* The fast 7F ROM map is only valid for code whose caller/callee addresses
+ * corroborate that mapping. RAM-loaded mods use their real runtime TLB. */
+BOOL GEUsesROMCodeMapping(void)
+{
+	return GEGetHackResolution()->guardvalid;
+}
+
+/* The emulator stores each emulated word in host byte order.  Scan only
+ * allocated RDRAM; return zero for missing or ambiguous code. */
+static unsigned int GEPDFindRAMPattern(const unsigned int *pattern,
+	const unsigned int *mask, unsigned int count)
+{
+	unsigned int offset, index, match = 0;
+	unsigned int *words = (unsigned int *)gMS_RDRAM;
+	if(current_rdram_size < count * 4)
+		return 0;
+	for(offset = 0x1000; offset <= current_rdram_size - count * 4; offset += 4)
+	{
+		for(index = 0; index < count; index++)
+			if((words[offset / 4 + index] & mask[index]) != (pattern[index] & mask[index]))
+				break;
+		if(index == count)
+		{
+			if(match != 0)
+				return 0;
+			match = offset;
+		}
+	}
+	return match == 0 ? 0 : 0x80000000 + match;
+}
+
+static void GEPDWriteRAMCode(unsigned int address, unsigned int value)
+{
+	unsigned int page;
+	unsigned char *backing;
+	/* Code copied into RAM may already have been compiled before the timer
+	 * runs. Invalidate both its physical and mapped virtual code aliases. */
+	Check_And_Invalidate_Compiled_Blocks_By_DMA(address, 4, "GEPD patch");
+	InvalidateOneBlock(address);
+	InvalidateOneBlock(address | 0x20000000);
+	backing = (unsigned char *)gMS_RDRAM + ((address & 0x007FFFFF) & ~0xFFF);
+	for(page = 0x70000; page < 0x80000; page++)
+		if((unsigned char *)TLB_sDWORD_R[page] == backing)
+			InvalidateOneBlock(page << 12);
+	LOAD_UWORD_PARAM(address) = value;
+}
+
+static void GEPatchRAMFiringRate(void)
+{
+	unsigned int context, index;
+	if(geRAMFiringSite != 0)
+	{
+		for(index = 0; index < 9; index++)
+			if(LOAD_UWORD_PARAM(geRAMFiringSite - 0x10 + index * 4) !=
+				(index == 4 ? 0x00021040 : geRAMFiringContext[index]))
+				break;
+		if(index == 9)
+			return;
+	}
+	geRAMFiringSite = 0;
+	context = GEPDFindRAMPattern(gefiringratepattern, gefiringratemask, 9);
+	if(context != 0)
+	{
+		geRAMFiringSite = context + 0x10;
+		for(index = 0; index < 9; index++)
+			geRAMFiringContext[index] = LOAD_UWORD_PARAM(context + index * 4);
+		GEPDWriteRAMCode(geRAMFiringSite, 0x00021040);
+	}
+}
+
+static void GEPatchRAMHeadRoll(void)
+{
+	unsigned int address, index, match = 0;
+	BOOL valid;
+	if(geRAMHeadRollSite != 0)
+	{
+		valid = TRUE;
+		for(index = 0; index < 6; index++)
+		{
+			address = geRAMHeadRollSite + index * 0x1C;
+			if(LOAD_UWORD_PARAM(address) != 0 ||
+				LOAD_UWORD_PARAM(address - 4) != geRAMHeadRollContext[index * 2] ||
+				LOAD_UWORD_PARAM(address + 4) != geRAMHeadRollContext[index * 2 + 1])
+				valid = FALSE;
+		}
+		if(valid)
+			return;
+		geRAMHeadRollSite = 0;
+	}
+	if(current_rdram_size < 5 * 0x1C + 8)
+		return;
+	for(address = 0x80001000; address <= 0x80000000 + current_rdram_size - (5 * 0x1C + 8); address += 4)
+	{
+		for(index = 0; index < 6; index++)
+			if(LOAD_UWORD_PARAM(address + index * 0x1C) != geheadrolloriginal[index])
+				break;
+		if(index == 6)
+		{
+			if(match != 0)
+				return;
+			match = address;
+		}
+	}
+	if(match == 0)
+		return;
+	geRAMHeadRollSite = match;
+	for(index = 0; index < 6; index++)
+	{
+		address = match + index * 0x1C;
+		geRAMHeadRollContext[index * 2] = LOAD_UWORD_PARAM(address - 4);
+		geRAMHeadRollContext[index * 2 + 1] = LOAD_UWORD_PARAM(address + 4);
+		GEPDWriteRAMCode(address, 0);
+	}
 }
 
 static void GEPatchWatchLaserWeapon(void)
@@ -3203,16 +3388,16 @@ void GEFiringRateHack(void)
 	unsigned int code;
 	const GE_HACK_RESOLUTION *resolution = GEGetHackResolution();
 
-	if(!resolution->firingvalid)
-		return;
+	if(resolution->firingvalid && GEReadROMWord(resolution->readfiringrate) == 0x00000000)
+		GEWriteROMWord(resolution->readfiringrate, 0x00021040);
 
-	if(GEReadROMWord(resolution->readfiringrate) == 0x00000000)
+	if(resolution->dronevalid && GEReadROMWord(resolution->dronegunfiringrate) == 0x250B0002)
+		GEWriteROMWord(resolution->dronegunfiringrate, 0x250B0004);
+
+	if(resolution->guardvalid &&
+		GEPatternMatches(resolution->updateaimtarget, geupdateaimtargetpattern, geupdateaimtargetmask, 20) &&
+		GEReadROMWord(resolution->updateaimtarget + 0x30) == resolution->updateaimtargetjal)
 	{
-		if(GEReadROMWord(resolution->updateaimtarget) != 0x27BDFFE8 ||
-			GEReadROMWord(resolution->updateaimtarget + 0x30) != resolution->updateaimtargetjal ||
-			GEReadROMWord(resolution->dronegunfiringrate) != 0x250B0002)
-			return;
-
 		for(codeindex = 0; codeindex < 20; codeindex++)
 		{
 			code = gecodearray[codeindex];
@@ -3222,13 +3407,9 @@ void GEFiringRateHack(void)
 				code = resolution->updateaimtargetreturn;
 			GEWriteROMWord(resolution->updateaimtarget + (codeindex * 4), code);
 		}
-
-		GEWriteROMWord(resolution->readfiringrate, 0x00021040);
-		GEWriteROMWord(resolution->dronegunfiringrate, 0x250B0004);
 	}
-	else if(GEReadROMWord(resolution->readfiringrate) != 0x00021040)
-		return;
 
+	GEPatchRAMFiringRate();
 	GEPatchWatchLaserWeapon();
 }
 
@@ -3237,6 +3418,9 @@ void GEDisableHeadRoll(void)
 	int index;
 	const GE_HACK_RESOLUTION *resolution = GEGetHackResolution();
 
+	/* RAM-loaded mods need the live copy patched even after their ROM copy
+	 * was changed, or after the loader has already copied it. */
+	GEPatchRAMHeadRoll();
 	if(!resolution->headrollvalid)
 		return;
 
@@ -3250,24 +3434,127 @@ void GEDisableHeadRoll(void)
 		GEWriteROMWord(resolution->headrollnop[index], 0);
 }
 
+static const unsigned int pdspeedpattern[27] = {0x8C8501E4, 0x0040F809, 0x8C8601E0, 0x0C005431, 0x00000000, 0x10400011, 0x3C0F8006, 0x8DEFEEC0, 0x51E0000F, 0x8FBF0014, 0x0C005207, 0x00000000, 0x5C40000B, 0x8FBF0014, 0x0C00543A, 0x00000000, 0x0C00508E, 0x00000000, 0x0C005451, 0x00000000, 0x3C04800A, 0x0C005016, 0x24849A60, 0x8FBF0014, 0x27BD0018, 0x03E00008, 0x00000000};
+static const unsigned int pdspeedmask[27] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFFFF0000, 0xFC000000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+static const unsigned int pdmasteroriginal[20] = {0x3C10800A, 0x3C11000B, 0x3C120002, 0x3C130005, 0x3C140001, 0xAFBF002C, 0x36947D78, 0x3673F5E1, 0x3652FAF0, 0x3631EBC2, 0x26109FC0, 0x0C012144, 0x00000000, 0x8E0E0018, 0x8E0F0020, 0x8E190024, 0x004E1823, 0x01E33821, 0x00F3C021, 0x0311001B};
+static const unsigned int pdguardoriginal[18] = {0x808E0007, 0x24010008, 0x00001025, 0x15C1000A, 0x00000000, 0x8C8F004C, 0x31F80060, 0x13000006, 0x00000000, 0xAC85004C, 0x0FC0C495, 0xAC860050, 0x10000001, 0x24020001, 0x8FBF0014, 0x27BD0018, 0x03E00008, 0x00000000};
+static const unsigned int pdcaveoriginal[42] = {0x4C494748, 0x5453203A, 0x20486974, 0x206F6363, 0x75726564, 0x206F6E20, 0x6C696768, 0x74202564, 0x20696E20, 0x726F6F6D, 0x2025640A, 0x00000000, 0x4C322825, 0x6429202D, 0x3E200000, 0x4C32202D, 0x3E204255, 0x494C4420, 0x4C494748, 0x54532054, 0x52414E53, 0x46455220, 0x5441424C, 0x45202D20, 0x53746172, 0x74696E67, 0x0A000000, 0x4C322825, 0x6429202D, 0x3E200000, 0x4C325F42, 0x75696C64, 0x5472616E, 0x73666572, 0x5461626C, 0x6573202D, 0x3E20466F, 0x756E6420, 0x25642070, 0x6F727461, 0x6C730A00, 0x4C322825};
+
+static BOOL PDPreservedWords(unsigned int address, const unsigned int *words, unsigned int count)
+{
+	unsigned int index;
+	if(address < 0x80000000 || address - 0x80000000 > current_rdram_size ||
+		count * 4 > current_rdram_size - (address - 0x80000000))
+		return FALSE;
+	for(index = 0; index < count; index++)
+		if(LOAD_UWORD_PARAM(address + index * 4) != words[index])
+			return FALSE;
+	return TRUE;
+}
+
 void PDTimingHack(void)
 {
 	int codeindex;
-	if(LOAD_UWORD_PARAM(PD_masterclock) == 0x3652FAF0 && LOAD_UWORD_PARAM(PD_newcodearealastcode) == 0x4C322825) // inject new timing code and camping guard 60fps fix
-	{
-		for(codeindex = 0; codeindex < 42; codeindex++)
-			LOAD_UWORD_PARAM(PD_newcodearea + (codeindex * 4)) = pdcodearray[codeindex];
-		LOAD_UWORD_PARAM(PD_masterclock) = 0x0BC69E38;
-		LOAD_UWORD_PARAM(PD_masterclock + 4) = 0x3652FAF0;
-		LOAD_UWORD_PARAM(PD_updateaimtarget) = 0x0FC69E5A;
-		LOAD_UWORD_PARAM(PD_updateaimtarget + 4) = 0x8C8E0020;
-	}
+	/* This shim embeds globals and object layouts specific to NTSC 1.1.
+	 * Relocating only its entry point would silently corrupt other builds.
+	 * Keep it on the verified retail layout until every dependency can be
+	 * resolved; the independent lib speed patch below supports moved code. */
+	if(emustatus.game_hack != GHACK_PD || currentromoptions.crc1 != 0x41F2B98F ||
+		currentromoptions.crc2 != 0xB458B466 || current_rdram_size < 0x3C7988)
+		return;
+	if(LOAD_UWORD_PARAM(PD_masterclock) != 0x3652FAF0)
+		return;
+	if(!PDPreservedWords(PD_masterclock - 0x20, pdmasteroriginal, 20) ||
+		!PDPreservedWords(PD_updateaimtarget - 0x28, pdguardoriginal, 18) ||
+		!PDPreservedWords(PD_newcodearea, pdcaveoriginal, 42))
+		return;
+	for(codeindex = 0; codeindex < 42; codeindex++)
+		GEPDWriteRAMCode(PD_newcodearea + codeindex * 4, pdcodearray[codeindex]);
+	GEPDWriteRAMCode(PD_masterclock, 0x0BC69E38);
+	GEPDWriteRAMCode(PD_masterclock + 4, 0x3652FAF0);
+	GEPDWriteRAMCode(PD_updateaimtarget, 0x0FC69E5A);
+	GEPDWriteRAMCode(PD_updateaimtarget + 4, 0x8C8E0020);
 }
 
 void PDSpeedHack(void)
 {
-	if(LOAD_SWORD_PARAM(PD_frameratecal) == 0x0C005431) // if instruction has yet to be overwritten, overwrite jal with hack
-		LOAD_UWORD_PARAM(PD_frameratecal) = 0x10000013; // beq r0, r0, 0x700143D8
+	unsigned int context, index;
+	if(emustatus.game_hack != GHACK_PD)
+		return;
+	if(pdSpeedSite != 0)
+	{
+		for(index = 0; index < 27; index++)
+			if(LOAD_UWORD_PARAM(pdSpeedSite - 0xC + index * 4) !=
+				(index == 3 ? 0x10000013 : pdSpeedContext[index]))
+				break;
+		if(index == 27)
+			return;
+	}
+	pdSpeedSite = 0;
+	context = GEPDFindRAMPattern(pdspeedpattern, pdspeedmask, 27);
+	if(context == 0)
+		return;
+	for(index = 0; index < 27; index++)
+		pdSpeedContext[index] = LOAD_UWORD_PARAM(context + index * 4);
+	pdSpeedSite = context + 0xC;
+	GEPDWriteRAMCode(pdSpeedSite, 0x10000013);
+}
+
+static const unsigned int pdheadrollpattern[9] = {0x00047080, 0x01C47021, 0x000E7140, 0x3C02800B, 0x004E1021, 0x9442C800, 0x304F0080, 0x03E00008, 0x000F102B};
+static const unsigned int pdheadrollmask[9] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+
+void PDDisableHeadRoll(void)
+{
+	unsigned int context, index;
+	if(emustatus.game_hack != GHACK_PD)
+		return;
+	if(pdHeadRollSite != 0)
+	{
+		for(index = 0; index < 9; index++)
+			if(LOAD_UWORD_PARAM(pdHeadRollSite - 0x20 + index * 4) !=
+				(index == 8 ? 0x00001025 : pdHeadRollContext[index]))
+				break;
+		if(index == 9)
+			return;
+	}
+	pdHeadRollSite = 0;
+	context = GEPDFindRAMPattern(pdheadrollpattern, pdheadrollmask, 9);
+	if(context == 0)
+		return;
+	for(index = 0; index < 9; index++)
+		pdHeadRollContext[index] = LOAD_UWORD_PARAM(context + index * 4);
+	/* options_get_head_roll: preserve its load/config data and return false
+	 * in the JR delay slot. This is the game's existing head-roll option. */
+	pdHeadRollSite = context + 0x20;
+	GEPDWriteRAMCode(pdHeadRollSite, 0x00001025);
+}
+
+void GEPDQueueRuntimeHacks(void)
+{
+	InterlockedExchange(&gepdPatchesPending, 1);
+}
+
+void GEPDApplyPendingHacks(void)
+{
+	/* Called at VI dispatch on the emulation thread, after the current
+	 * generated block has returned. Never race code compilation on the UI
+	 * timer thread when mutating instructions or invalidating native code. */
+	if(!gepdGameEntryReached || !InterlockedExchange(&gepdPatchesPending, 0) || rominfo.TV_System != TV_SYSTEM_NTSC)
+		return;
+	if(emustatus.game_hack == GHACK_GE)
+	{
+		if(emuoptions.GEFiringRateHack && emuoptions.OverclockFactor != 1)
+			GEFiringRateHack();
+		if(emuoptions.GEDisableHeadRoll)
+			GEDisableHeadRoll();
+	}
+	else if(emustatus.game_hack == GHACK_PD)
+	{
+		if(emuoptions.PDSpeedHack && emuoptions.OverclockFactor != 1)
+			PDSpeedHack();
+		if(emuoptions.GEDisableHeadRoll)
+			PDDisableHeadRoll();
+	}
 }
 
 /*
@@ -3275,30 +3562,62 @@ void PDSpeedHack(void)
  =======================================================================================================================
  */
 
-#define GE_pause 0x80048370 // pause flag (1 = GE is paused)
-#define PD_pause 0x80084014 // menu flag (1 = PD is paused)
+void GEPDOnGameEntry(void)
+{
+	/* IPL has finished validating cartridge data. Open the mutation gate
+	 * before the game's own loader can copy relocated code from ROM. */
+	gepdGameEntryReached = TRUE;
+	GEPDApplyPendingHacks();
+}
 
-static BOOL alreadypaused = FALSE;
+static const unsigned int pdpausepattern[14] = {0x3C028008, 0x03E00008, 0x8C424014, 0x3C028008, 0x03E00008, 0x8C424020, 0x04800003, 0x28810004, 0x14200002, 0x00000000, 0x00002025, 0x3C018008, 0x03E00008, 0xAC244020};
+static const unsigned int pdpausemask[14] = {0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000};
+
+static unsigned int GEPDResolvePauseAddress(void)
+{
+	unsigned int context, address = 0;
+	if(emustatus.game_hack == GHACK_GE)
+		address = GEGetHackResolution()->pause;
+	else if(emustatus.game_hack == GHACK_PD)
+	{
+		context = GEPDFindRAMPattern(pdpausepattern, pdpausemask, 14);
+		if(context != 0)
+			address = GEPDOperandAddress(LOAD_UWORD_PARAM(context), LOAD_UWORD_PARAM(context + 8));
+	}
+	if(address < 0x80000000 || current_rdram_size < 4 ||
+		address - 0x80000000 > current_rdram_size - 4)
+		return 0;
+	return address;
+}
 
 void GEPDPause(BOOL pause)
 {
-	if(rominfo.TV_System != TV_SYSTEM_NTSC) // not USA ROM
-		return;
-	if(emustatus.game_hack == GHACK_NONE)
+	unsigned int address, state;
+	if(rominfo.TV_System != TV_SYSTEM_NTSC || emustatus.game_hack == GHACK_NONE)
 		return;
 	if(pause)
 	{
-		emustatus.gepd_pause = 2;
-		if(!LOAD_UWORD_PARAM(emustatus.game_hack == GHACK_GE ? GE_pause : PD_pause))
-			LOAD_UWORD_PARAM(emustatus.game_hack == GHACK_GE ? GE_pause : PD_pause) = 1;
-		else
-			alreadypaused = TRUE, emustatus.gepd_pause = 1;
+		address = GEPDResolvePauseAddress();
+		if(address == 0)
+			return;
+		state = LOAD_UWORD_PARAM(address);
+		if(state > 1)
+			return;
+		gepdPauseAddress = address;
+		alreadypaused = state != 0;
+		emustatus.gepd_pause = state != 0 ? 1 : 2;
+		if(state == 0)
+			LOAD_UWORD_PARAM(address) = 1;
 	}
 	else
 	{
-		if(!alreadypaused)
-			LOAD_UWORD_PARAM(emustatus.game_hack == GHACK_GE ? GE_pause : PD_pause) = 0;
+		/* Release only the same validated flag this session acquired. */
+		address = gepdPauseAddress;
+		if(!alreadypaused && address >= 0x80000000 && current_rdram_size >= 4 &&
+			address - 0x80000000 <= current_rdram_size - 4 && LOAD_UWORD_PARAM(address) == 1)
+			LOAD_UWORD_PARAM(address) = 0;
 		alreadypaused = FALSE;
+		gepdPauseAddress = 0;
 	}
 }
 
@@ -3453,10 +3772,11 @@ void PrepareBeforePlay(int IsFullScreen)
 	if(guioptions.auto_hide_cursor_when_active)
 		HideCursor(TRUE);
 
+	GEPDResetHackResolution();
 	emustatus.game_hack = GHACK_NONE;
 	if(rominfo.TV_System == TV_SYSTEM_NTSC) // if USA ROM
 	{
-		if(!strncmp(currentromoptions.Game_Name, "GOLDENEYE", 9) || strnstr(currentromoptions.Game_Name, "GOLD", 4) != NULL)
+		if(GEGetHackResolution()->gamevalid || !strncmp(currentromoptions.Game_Name, "GOLDENEYE", 9) || strnstr(currentromoptions.Game_Name, "GOLD", 4) != NULL)
 			emuoptions.UsingRspPlugin = TRUE, emustatus.game_hack = GHACK_GE;
 		else if(!strncmp(currentromoptions.Game_Name, "Perfect Dark", 12) || !strncmp(currentromoptions.Game_Name, "GoldenEye X", 11) || strnstr(currentromoptions.Game_Name, "Perfect", 7) != NULL)
 			emuoptions.UsingRspPlugin = FALSE, emustatus.game_hack = GHACK_PD;

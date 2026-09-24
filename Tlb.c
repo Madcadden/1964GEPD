@@ -755,6 +755,7 @@ uint32 Trigger_TLB_Invalid_Exception(uint32 address, int operation)
  =======================================================================================================================
  */
 void InitTLBOther(void);
+extern BOOL GEUsesROMCodeMapping(void);
 
 /*
  * GoldenEye normally maps its 0x7f000000 game segment directly from ROM.
@@ -851,7 +852,7 @@ void InitTLBOther(void)
 
 	/* some TLB hacks to speed up some games, but fails at others */
 	trigger_tlb_exception_faster = FALSE;
-	if(emustatus.game_hack == GHACK_GE && GEFindGameSegment(&geGameRomOffset))
+	if(emustatus.game_hack == GHACK_GE && GEUsesROMCodeMapping() && GEFindGameSegment(&geGameRomOffset))
 	{
 		/* Hack for golden eye, game still work without hack, but will be faster with hack */
 		gePageCount = (gAllocationLength - geGameRomOffset) / 0x1000;
