@@ -1,12 +1,27 @@
 # 1964 GEPD 0.8.5 - Auto-Mod Edition
 
-**[Download Auto-Mod Edition v0.2.1](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.1)** — includes Mouse Injector v0.3.1.
+**[Download Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)** — includes Mouse Injector v0.3.2.
 
 1964 0.8.5 GEPD Edition with automatic compatibility support for GoldenEye 007 and Perfect Dark ROM mods.
 
 This branch automatically locates relocated GoldenEye game segments and the firing-rate and head-roll modification points instead of relying on fixed retail-ROM addresses. It also includes the corrected main-window and toolbar appearance.
 
-The included **[Mouse Injector v0.3.1](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.1)** adds FOV and input discovery, Map Maker mouse controls, and configurable N64 D-pad and shoulder buttons.
+The included **[Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)** adds FOV and input discovery, Map Maker mouse controls, and configurable N64 D-pad and shoulder buttons.
+
+## GoldenEye X controls
+
+v0.2.2 bundles **Mouse Injector v0.3.2**, which restores controls in
+**GoldenEye X 6a**. Its renamed ROM header now reaches the existing Perfect Dark
+compatibility checks. Controls have been confirmed by user testing.
+
+The emulator executable is unchanged from v0.2.1; the emulator already
+recognizes GoldenEye X as a Perfect Dark engine mod. Existing v0.2.1 users can
+replace only `plugin/Mouse_Injector.dll`. GoldenEye X uses the Perfect Dark
+input settings; cold-boot after upgrading.
+
+Automated checks cover the supplied ROM's driver, menu and gameplay input,
+boot/reopen and code-signature guards. They do not establish compatibility with
+every GoldenEye X version or Perfect Dark mod.
 
 ## GoldenEye PD-AI compatibility
 
@@ -41,7 +56,7 @@ Watch and other menus that use directional selection respond to mouse movements 
 
 ## Install
 
-Start with [Graslu's original 1964 GEPD package](https://github.com/Graslu/1964GEPD/releases/tag/latest). Close 1964 and back up your current files, then extract the v0.2.1 ZIP over that folder. Replace **both** `1964.exe` and `plugin/Mouse_Injector.dll`; the matching injector is already included. Keep your existing settings, other plugins and save files, and cold-boot the ROM after upgrading. This ZIP is an update package; it does not include the complete graphics/audio plugin distribution.
+Start with [Graslu's original 1964 GEPD package](https://github.com/Graslu/1964GEPD/releases/tag/latest). Close 1964 and back up your current files, then extract the v0.2.2 ZIP over that folder. Replace **both** `1964.exe` and `plugin/Mouse_Injector.dll`; the matching injector is already included. Keep your existing settings, other plugins and save files, and cold-boot the ROM after upgrading. This ZIP is an update package; it does not include the complete graphics/audio plugin distribution.
 
 ## GoldenEye Plus and Perfect Dark discovery
 
@@ -62,7 +77,7 @@ user testing; automated tests also cover the supplied retail GoldenEye, Plus and
 Perfect Dark USA Rev 1 code. This is not a claim that every co-op configuration
 or third-party mod has been tested.
 
-See the [v0.2.1 release notes](docs/releases/automatic-mod-compatibility-v0.2.1.md) for changes and file hashes.
+See the [v0.2.2 release notes](docs/releases/automatic-mod-compatibility-v0.2.2.md) for changes and file hashes.
 
 ## Credits and upstream project
 
