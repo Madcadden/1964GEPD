@@ -41,7 +41,7 @@ Defaults with the WASD input profile:
 
 The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. Buttons can be remapped in Input Settings. **Keyboard R remains reload** during gameplay, separate from the N64 R shoulder.
 
-Directional multiplayer and confirmation menus respond to mouse movements and left-click. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+Directional multiplayer and confirmation menus respond to mouse movements and left-click. Orbit mode keeps its keyboard controls.
 
 For mouse navigation limited to GoldenEye 007 Plus's Map Maker editing pause menus, with regular gameplay watches using keyboard/controller navigation, use the corrected [v0.2.2 release](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2).
 

@@ -1,6 +1,6 @@
 ## Changes in v0.2.2
 
-Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
+Fixes the black screen after confirming **Exit** in GoldenEye 007 Plus’s **Native Test Mode**. Exit now returns to Map Maker with the current map intact. This correction requires the updated `1964.exe`; the included Mouse Injector v0.3.2 DLL is unchanged.
 
 **Josh's [GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus) is now supported**, including mouse controls for its Map Maker and menus. GoldenEye Plus also includes **1–4-player local co-op**, developed by Josh and the mod's contributors.
 
@@ -33,7 +33,7 @@ Defaults with the WASD input profile:
 
 The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. Buttons can be remapped in Input Settings. **Keyboard R remains reload** during gameplay, separate from the N64 R shoulder.
 
-The Map Maker's editing pause menus support mouse navigation. Regular gameplay watch menus, including those in Plus, retain keyboard/controller navigation. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+The Map Maker's editing pause menus support mouse navigation. Regular gameplay watch menus, including the watch in Plus's Native Test Mode, retain keyboard/controller navigation. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls. Mouse look in First Person View and Native Test Mode is unchanged.
 
 ## Compatibility
 
@@ -42,8 +42,6 @@ GoldenEye 007 Plus!
 **Previously tested:** GoldenEye 007 (USA), Perfect Dark (USA v1.1), Murk's RandomEye-zer v1.1, Bloodlust v1.06, King of the Hill v0.98, Cartridge Tilt, GE Stereo SFX, GE Compilation v1.1, GoldenEye Tower, Goldfinger 64, Netplay 60FPS LTK Cup Edition v1.1, Pheonaarx's Yet To Come, Project GoldenEye v2.1, RickRollEye 64, TND64 Expanded and TSWLM 64 Demo v1.
 
 Automatic discovery supports recognized code layouts. 
-
-Online co-op with a full-screen view for each player is a possible future project; it is not included in this release.
 
 Please open an issue if a mod does not work or has glitches. Include its name/version, required base ROM and what happened. Do not upload ROM files. Mod-specific bugs should also be reported to the mod's developer.
 
@@ -71,8 +69,9 @@ The download has been updated in place; the version remains v0.2.2.
 
 **SHA-256**
 
-- ZIP: `dd24053b6efe82dd1bbb181ab26106e0081be5ce6e2229639c424634b33f5cf7`
-- `1964.exe`: `e40a096f00d0843a58af6ff5eb84cdbdad8de9c2416b92692460865b5aca4490`
+- ZIP: `4e32c16672fdc3db12469dba6be26cebbd81123f75818f48fad4cc6d4ef6da00`
+- `1964.exe`: `b7369abecb1c65f994e1a3e907ec5f1ffdbf3013e92d4d4613d0632b02b7c700`
 - `plugin/Mouse_Injector.dll`: `9d1c3df81c70601ff9bb7e7dd97c8cfa641ef3104f844d2c4d6e727468c798fd`
 
-[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/93af8d107c5d9135a70d7a4d1667c55b0646dd20) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)
+[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/1f75fec4c66a8348f67763c47696c5d375c5d993) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)
+
