@@ -3197,12 +3197,16 @@ static unsigned int geRAMHeadRollSite = 0;
 static unsigned int geRAMHeadRollContext[12];
 
 static void GETextureResetResolution(void);
+static void GEEditorResetResolution(void);
+static BOOL GETexturePlusTitle(void);
+static BOOL GETextureThreadsSafe(void);
 
 /* A new boot must never inherit addresses from another image with the same CRC. */
 static void GEPDResetHackResolution(void)
 {
 	GEPDRestoreROMHacks();
 	GETextureResetResolution();
+	GEEditorResetResolution();
 	memset(&geResolution, 0, sizeof(geResolution));
 	geResolutionInitialized = FALSE;
 	geRAMFiringSite = 0;
@@ -3395,12 +3399,9 @@ static void GEPDWriteRAMCode(unsigned int address, unsigned int value)
 	LOAD_UWORD_PARAM(address) = value;
 }
 
-/* Native Test return: exact validated physical-code layout only. The old
- * title initializer retained a stale pending menu after a test ended. Reuse
- * its native completed-test reset and queue editor page 30 after teardown.
- * This is the exact user-validated 284-byte initializer; no map data changes. */
-#define GE_EDITOR_TITLE_ROM 0x00035850U
-#define GE_EDITOR_TITLE_RAM 0x80600D20U
+/* Native Test return: select Plus by its header and resolve the title and
+ * completed-test helpers from their code and call relationships. Keep the
+ * existing initializer correction while relocating its operands. */
 #define GE_EDITOR_TITLE_WORDS 71U
 static const unsigned int geeditororiginal[71] = {
 	0x2402FFFF, 0x3C018003, 0xAC22A8F0, 0x3C018003, 0xAC22A8F8, 0x3C018003,
@@ -3484,15 +3485,68 @@ typedef struct GE_EDITOR_CONTEXT
 	unsigned int rom, ram, words;
 	const unsigned int *expected;
 } GE_EDITOR_CONTEXT;
-static const GE_EDITOR_CONTEXT geeditorcontexts[] = {
-	{0x000641F8U, 0x8062F6C8U, 87U, geeditorhelpers},
-	{0x00116588U, 0x806E1A58U, 8U, geeditortitlecaller},
-	{0x00051E50U, 0x8061D320U, 20U, geeditoreditorinit},
-	{0x000622E4U, 0x8062D7B4U, 22U, geeditormapheader},
-	{0x0006233CU, 0x8062D80CU, 14U, geeditorpreservemap},
-	{0x00055C14U, 0x806210E4U, 11U, geeditornativereturn},
-	{0x00055778U, 0x80620C48U, 9U, geeditordispatch},
-	{0x000559A4U, 0x80620E74U, 5U, geeditoreditorhandler},
+static GE_EDITOR_CONTEXT geeditorcontexts[] = {
+    {0U, 0U, 87U, geeditorhelpers},
+    {0U, 0U, 8U, geeditortitlecaller},
+    {0U, 0U, 11U, geeditornativereturn},
+    {0U, 0U, 9U, geeditordispatch},
+    {0U, 0U, 5U, geeditoreditorhandler},
+};
+
+static const unsigned int geeditororiginalmask[71] = {
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U,
+    0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFC000000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U,
+    0xFFFFFFFFU, 0xFC000000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU,
+    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U,
+    0xFFFF0000U, 0xFC000000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+};
+static const unsigned int geeditorpatchedmask[71] = {
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U,
+    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFC000000U, 0xFFFFFFFFU,
+    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFC000000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU,
+    0xFFFFFFFFU, 0xFC000000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFC000000U,
+    0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFC000000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU,
+    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+};
+static const unsigned int geeditorhelpersmask[87] = {
+    0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU,
+    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU,
+    0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU,
+    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U,
+    0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U,
+};
+static const unsigned int geeditortitlecallermask[8] = {
+    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFC000000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+};
+static const unsigned int geeditornativereturnmask[11] = {
+    0xFC000000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFC000000U, 0xFFFFFFFFU, 0xFC000000U, 0xFFFFFFFFU,
+    0xFFFFFFFFU, 0xFC000000U, 0xFFFFFFFFU,
+};
+static const unsigned int geeditordispatchmask[9] = {
+    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU,
+    0xFFFFFFFFU,
+};
+static const unsigned int geeditoreditorhandlermask[5] = {
+    0xFC000000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U,
+};
+static const int geEditorPatchSources[71] = {
+    0, 1, 2, 4, 6, 7, 9, 11, 13, 15, 17, 19, 21, 22, 23, 25, 26, 28, 29, 30, 31, 32, 33, 34, 31, 32, 37, 40, 39, 42, -1, 70, -1, 70, -1, 70, 1, -1, -1, 38, 41, 43, 44, 1, 46, 47, 48, 43, 44, 51, 52, 53, 54, 55, 56, 57, 1, 59, 61, 63, 65, 66, 67, 68, 69, 70, 70, 70, 70, 70, 70
+};
+static const unsigned int geEditorOriginalSources[71] = {
+    0U, 1U, 2U, 1U, 3U, 1U, 4U, 5U, 1U, 6U, 1U, 7U, 1U, 8U, 1U, 9U, 1U, 10U, 1U, 11U, 1U, 12U, 13U, 14U, 1U, 15U, 16U, 1U, 17U, 18U, 19U, 20U, 21U, 22U, 23U, 20U, 21U, 26U, 39U, 28U, 27U, 40U, 29U, 41U, 42U, 1U, 44U, 45U, 46U, 41U, 42U, 49U, 50U, 51U, 52U, 53U, 54U, 55U, 1U, 57U, 1U, 58U, 1U, 59U, 1U, 60U, 61U, 62U, 63U, 64U, 31U
 };
 
 static BOOL GEEditorWordsMatch(BOOL ram, unsigned int address,
@@ -3515,70 +3569,177 @@ static BOOL GEEditorWordsMatch(BOOL ram, unsigned int address,
 	return TRUE;
 }
 
+
+/* The title identifies Plus; code signatures follow relocated implementations.
+ * Cache exact cartridge operands so a save from another layout is not rewritten. */
+static BOOL geEditorResolutionInitialized = FALSE;
+static BOOL geEditorResolutionValid = FALSE;
+static unsigned int geEditorTitleROM, geEditorTitleRAM, geEditorMenuEntry;
+static unsigned int geEditorOriginalCode[GE_EDITOR_TITLE_WORDS];
+static unsigned int geEditorPatchedCode[GE_EDITOR_TITLE_WORDS];
+static unsigned int geEditorContextCode[5][87];
+
+static void GEEditorResetResolution(void)
+{
+    unsigned int index;
+    geEditorResolutionInitialized = FALSE;
+    geEditorResolutionValid = FALSE;
+    geEditorTitleROM = geEditorTitleRAM = geEditorMenuEntry = 0;
+    for(index = 0; index < 5U; index++)
+        geeditorcontexts[index].rom = geeditorcontexts[index].ram = 0;
+}
+
+static unsigned int GEEditorCallTarget(unsigned int word)
+{
+    return (word >> 26) == 3U ? 0x80000000U | ((word & 0x03FFFFFFU) << 2) : 0;
+}
+
+static BOOL GEEditorResolve(void)
+{
+    static const unsigned int *masks[5] = {
+        geeditorhelpersmask, geeditortitlecallermask, geeditornativereturnmask,
+        geeditordispatchmask, geeditoreditorhandlermask
+    };
+    unsigned int index, other, word, titleRAM, delta, target, menu, table;
+    BOOL prepatched = FALSE;
+    if(geEditorResolutionInitialized)
+        return geEditorResolutionValid;
+    geEditorResolutionInitialized = TRUE;
+    if(!GETexturePlusTitle())
+        return FALSE;
+    geEditorTitleROM = GEFindUniqueROMPattern(geeditororiginal,
+        geeditororiginalmask, GE_EDITOR_TITLE_WORDS);
+    if(geEditorTitleROM == 0)
+    {
+        geEditorTitleROM = GEFindUniqueROMPattern(geeditorpatched,
+            geeditorpatchedmask, GE_EDITOR_TITLE_WORDS);
+        prepatched = TRUE;
+    }
+    if(geEditorTitleROM == 0)
+        return FALSE;
+    for(index = 0; index < 5U; index++)
+    {
+        GE_EDITOR_CONTEXT *context = &geeditorcontexts[index];
+        context->rom = GEFindUniqueROMPattern(context->expected, masks[index], context->words);
+        if(context->rom == 0)
+            return FALSE;
+    }
+    titleRAM = GEEditorCallTarget(GEReadROMWord(geeditorcontexts[1].rom + 16U));
+    if(titleRAM < 0x80000000U || titleRAM > 0x80800000U - GE_EDITOR_TITLE_WORDS * 4U ||
+        titleRAM < geEditorTitleROM)
+        return FALSE;
+    geEditorTitleRAM = titleRAM;
+    delta = titleRAM - geEditorTitleROM;
+    for(index = 0; index < 5U; index++)
+    {
+        GE_EDITOR_CONTEXT *context = &geeditorcontexts[index];
+        if(context->rom > 0xFFFFFFFFU - delta)
+            return FALSE;
+        context->ram = context->rom + delta;
+        if(context->ram < 0x80000000U || context->ram >= 0x80800000U ||
+            context->words > (0x80800000U - context->ram) / 4U)
+            return FALSE;
+        for(word = 0; word < context->words; word++)
+            geEditorContextCode[index][word] = GEReadROMWord(context->rom + word * 4U);
+    }
+    /* Bind the native return to its completed-test getter and reset functions. */
+    if(GEEditorCallTarget(geEditorContextCode[2][0]) != geeditorcontexts[0].ram + 0xC0U ||
+        GEEditorCallTarget(geEditorContextCode[2][4]) != geeditorcontexts[0].ram + 0xECU)
+        return FALSE;
+    for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
+    {
+        word = prepatched ? geEditorOriginalSources[index] : index;
+        geEditorOriginalCode[index] = GEReadROMWord(geEditorTitleROM + word * 4U);
+    }
+    /* Reused address loads and calls must retain their original relationships. */
+    for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
+        for(other = 0; other < index; other++)
+            if(geeditororiginal[index] == geeditororiginal[other] &&
+                geeditororiginalmask[index] != 0xFFFFFFFFU &&
+                geEditorOriginalCode[index] != geEditorOriginalCode[other])
+                return FALSE;
+    if((geEditorOriginalCode[1] & 0xFFFFU) != (geEditorOriginalCode[31] & 0xFFFFU))
+        return FALSE;
+    menu = GEPDOperandAddress(geEditorOriginalCode[1], geEditorOriginalCode[2]);
+    target = GEPDOperandAddress(geEditorContextCode[4][2], geEditorContextCode[4][4]);
+    if(menu == 0 || menu != target)
+        return FALSE;
+    table = GEPDOperandAddress(geEditorContextCode[3][4], geEditorContextCode[3][6]);
+    if(table == 0 || table > 0x807FFFFCU - 30U * 4U)
+        return FALSE;
+    geEditorMenuEntry = table + 30U * 4U;
+    for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
+        geEditorPatchedCode[index] = geEditorPatchSources[index] >= 0 ?
+            geEditorOriginalCode[geEditorPatchSources[index]] : geeditorpatched[index];
+    geEditorPatchedCode[30] = geEditorContextCode[2][0];
+    geEditorPatchedCode[34] = geEditorContextCode[2][4];
+    geEditorPatchedCode[38] = 0xAC2E0000U | (geEditorOriginalCode[32] & 0xFFFFU);
+    /* This also rejects mixed original/patched initializers. */
+    if(!GEEditorWordsMatch(FALSE, geEditorTitleROM,
+        prepatched ? geEditorPatchedCode : geEditorOriginalCode, GE_EDITOR_TITLE_WORDS))
+        return FALSE;
+    geEditorResolutionValid = TRUE;
+    return TRUE;
+}
+
 static BOOL GEEditorContextMatches(BOOL ram)
 {
-	unsigned int index;
-	for(index = 0; index < sizeof(geeditorcontexts) / sizeof(geeditorcontexts[0]); index++)
-	{
-		const GE_EDITOR_CONTEXT *context = &geeditorcontexts[index];
-		if(!GEEditorWordsMatch(ram, ram ? context->ram : context->rom,
-			context->expected, context->words))
-			return FALSE;
-	}
-	return TRUE;
+    unsigned int index;
+    for(index = 0; index < 5U; index++)
+    {
+        const GE_EDITOR_CONTEXT *context = &geeditorcontexts[index];
+        if(!GEEditorWordsMatch(ram, ram ? context->ram : context->rom,
+            geEditorContextCode[index], context->words))
+            return FALSE;
+    }
+    return TRUE;
 }
 
 static BOOL GEEditorPCInTitle(unsigned int pc)
 {
-	return pc >= GE_EDITOR_TITLE_RAM &&
-		pc < GE_EDITOR_TITLE_RAM + GE_EDITOR_TITLE_WORDS * 4;
+    if(pc >= 0xA0000000U && pc < 0xA0800000U)
+        pc -= 0x20000000U;
+    else if(pc < 0x00800000U)
+        pc += 0x80000000U;
+    return geEditorResolutionValid && pc >= geEditorTitleRAM &&
+        pc < geEditorTitleRAM + GE_EDITOR_TITLE_WORDS * 4U;
 }
 
 static void GEReconcileNativeEditorReturn(void)
 {
-	unsigned int index;
-	BOOL original;
-	/* CPU-thread entry/VI/resume only, after IPL validation. Physical code
-	 * needs 8 MiB; never admit this repair through ROM-map classification. */
-	if(!gepdGameEntryReached || emustatus.game_hack != GHACK_GE ||
-		gMemoryState.ROM_Image == NULL || gMS_RDRAM == NULL ||
-		rominfo.TV_System != TV_SYSTEM_NTSC || current_rdram_size < 0x800000U ||
-		GEUsesROMCodeMapping() || !GEEditorContextMatches(FALSE))
-		return;
-	original = GEEditorWordsMatch(FALSE, GE_EDITOR_TITLE_ROM,
-		geeditororiginal, GE_EDITOR_TITLE_WORDS);
-	if(!original && !GEEditorWordsMatch(FALSE, GE_EDITOR_TITLE_ROM,
-		geeditorpatched, GE_EDITOR_TITLE_WORDS))
-		return;
-	if(original)
-	{
-		/* Journal the complete group, including unchanged words. An external
-		 * edit to any word transfers ownership and prevents partial restore. */
-		for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
-			GERecordROMPatch(4, index, GE_EDITOR_TITLE_ROM + index * 4,
-				geeditorpatched[index]);
-		for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
-			GEWriteROMWord(GE_EDITOR_TITLE_ROM + index * 4, geeditorpatched[index]);
-	}
-	/* A restored save carries resident code independently of the ROM. Only
-	 * replace the complete original function after validating its native
-	 * helper and editor dispatch context in the live image. Mixed code is opaque. */
-	if(!GEEditorWordsMatch(TRUE, GE_EDITOR_TITLE_RAM,
-		geeditororiginal, GE_EDITOR_TITLE_WORDS) || !GEEditorContextMatches(TRUE) ||
-		LOAD_UWORD_PARAM(0x80052C98U) != 0x80620E74U)
-		return;
-	/* An old save can be inside the initializer, or inside its allocator
-	 * with a return into the old layout. The initializer clears current menu
-	 * before its first call. Defer until that active frame has completed. */
-	if(GEEditorPCInTitle((unsigned int)gHWS_pc) ||
-		(((unsigned int)gHWS_COP0Reg[STATUS] & 2U) &&
-		 GEEditorPCInTitle((unsigned int)gHWS_COP0Reg[EPC])) ||
-		(LOAD_UWORD_PARAM(0x800241A8U) == 0x5AU &&
-		 LOAD_UWORD_PARAM(0x8002A8F0U) == 0xFFFFFFFFU))
-		return;
-	for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
-		if(geeditororiginal[index] != geeditorpatched[index])
-			GEPDWriteRAMCode(GE_EDITOR_TITLE_RAM + index * 4, geeditorpatched[index]);
+    unsigned int index;
+    BOOL original;
+    if(!gepdGameEntryReached || emustatus.game_hack != GHACK_GE ||
+        gMemoryState.ROM_Image == NULL || gMS_RDRAM == NULL ||
+        current_rdram_size < 0x800000U || GEUsesROMCodeMapping() ||
+        !GEEditorResolve() || !GEEditorContextMatches(FALSE))
+        return;
+    original = GEEditorWordsMatch(FALSE, geEditorTitleROM,
+        geEditorOriginalCode, GE_EDITOR_TITLE_WORDS);
+    if(!original && !GEEditorWordsMatch(FALSE, geEditorTitleROM,
+        geEditorPatchedCode, GE_EDITOR_TITLE_WORDS))
+        return;
+    if(original)
+    {
+        for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
+            GERecordROMPatch(4, index, geEditorTitleROM + index * 4U,
+                geEditorPatchedCode[index]);
+        for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
+            GEWriteROMWord(geEditorTitleROM + index * 4U, geEditorPatchedCode[index]);
+    }
+    if(!GEEditorWordsMatch(TRUE, geEditorTitleRAM,
+        geEditorOriginalCode, GE_EDITOR_TITLE_WORDS) || !GEEditorContextMatches(TRUE) ||
+        LOAD_UWORD_PARAM(geEditorMenuEntry) != geeditorcontexts[4].ram)
+        return;
+    /* Shared scheduler guard covers live and suspended frames in either repair. */
+    if(!GETextureThreadsSafe())
+    {
+        InterlockedExchange(&gepdPatchesPending, 1);
+        return;
+    }
+    for(index = 0; index < GE_EDITOR_TITLE_WORDS; index++)
+        if(geEditorOriginalCode[index] != geEditorPatchedCode[index])
+            GEPDWriteRAMCode(geEditorTitleRAM + index * 4U, geEditorPatchedCode[index]);
 }
 
 /* Plus Map Maker textures: choose by the cartridge title, then locate the
@@ -3994,7 +4155,7 @@ static BOOL GETexturePCActive(unsigned int address)
         address -= 0x20000000U;
     else if(address < 0x00800000U)
         address += 0x80000000U;
-    return (address >= geTextureContexts[0].ram &&
+    return GEEditorPCInTitle(address) || (address >= geTextureContexts[0].ram &&
             address < geTextureContexts[0].ram + geTextureContexts[0].words * 4U) ||
         (address >= geTextureContexts[1].ram &&
             address < geTextureContexts[1].ram + geTextureContexts[1].words * 4U) ||
