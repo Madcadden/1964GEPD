@@ -76,7 +76,7 @@ INI_ENTRY	currentromoptions;						/* option setting for the current ROM, options
 
 /*
  =======================================================================================================================
-    from rom options and 1964 default options if the options £
+    from rom options and 1964 default options if the options Â£
     are set as DEFAULT in ROM setting
  =======================================================================================================================
  */
@@ -107,8 +107,8 @@ void SetDefaultOptions(void)
 
 /*
  =======================================================================================================================
-    This function should be called everytime before playing a game, will £
-    recalculate the values in the currentromoptions for emulator and CPU £
+    This function should be called everytime before playing a game, will Â£
+    recalculate the values in the currentromoptions for emulator and CPU Â£
     core to use
  =======================================================================================================================
  */
@@ -128,6 +128,20 @@ void GenerateCurrentRomOptions(void)
 	if(RomListSelectedEntry()->pinientry->RDRAM_Size == 0) currentromoptions.RDRAM_Size = defaultoptions.RDRAM_Size;
 	if(RomListSelectedEntry()->pinientry->Save_Type == 0) currentromoptions.Save_Type = defaultoptions.Save_Type;
 	if(RomListSelectedEntry()->pinientry->Use_TLB == 0) currentromoptions.Use_TLB = defaultoptions.Use_TLB;
+
+	/* GoldenEye 007 Plus release #10 moved saves from 4Kb EEPROM to 32KB SRAM.
+	 * The ROM keeps the same public title as earlier EEPROM builds, so key this
+	 * override to the internal ROM CRC instead of the title/header. */
+	if
+	(
+		RomListSelectedEntry()->pinientry->countrycode == 0x45
+	&&	RomListSelectedEntry()->pinientry->crc1 == 0x90B1D709
+	&&	RomListSelectedEntry()->pinientry->crc2 == 0x08DA6DB8
+	&&	!strncmp(rominfo.name, "GoldenEye 007 Plus", 18)
+	)
+	{
+		currentromoptions.Save_Type = SRAM_SAVETYPE;
+	}
 
 	if(RomListSelectedEntry()->pinientry->Counter_Factor == 0)
 		currentromoptions.Counter_Factor = defaultoptions.Counter_Factor;
@@ -223,7 +237,7 @@ void InitIniEntries(void)
 
 /*
  =======================================================================================================================
-    Allocate memory for a new entry, assign the default values and £
+    Allocate memory for a new entry, assign the default values and Â£
     return the pointer
  =======================================================================================================================
  */
@@ -260,10 +274,10 @@ INI_ENTRY *GetNewIniEntry(void)
 
 /*
  =======================================================================================================================
-    Add new entry into the list £
-    Return value: £
-    1) New entry, return the index of new entry £
-    2) Overwrite old entry, return the index of old entry £
+    Add new entry into the list Â£
+    Return value: Â£
+    1) New entry, return the index of new entry Â£
+    2) Overwrite old entry, return the index of old entry Â£
     3) Cannot insert new entry to list, return -1
  =======================================================================================================================
  */
@@ -686,7 +700,7 @@ BOOL WriteIniEntry(FILE *pstream, const INI_ENTRY *p)
 
 /*
  =======================================================================================================================
-    This function is called to read 1964.ini file and generate the ini_entry £
+    This function is called to read 1964.ini file and generate the ini_entry Â£
     array
  =======================================================================================================================
  */
@@ -728,8 +742,8 @@ BOOL WriteAllIniEntries(FILE *pstream)
 
 /*
  =======================================================================================================================
-    This function will destroy the entries in the ini_entries array. Memory for £
-    each entry is dynamatic allocated, need to free the memorys before program £
+    This function will destroy the entries in the ini_entries array. Memory for Â£
+    each entry is dynamatic allocated, need to free the memorys before program Â£
     exit.
  =======================================================================================================================
  */
@@ -781,10 +795,10 @@ void CopyIniEntry(INI_ENTRY *dest, const INI_ENTRY *src)
 
 /*
  =======================================================================================================================
-    I should not need to write such a stupid function to convert String to Int £
-    However, the sscanf() function does not work for me to input hex number from £
-    input string. I spent some time to debug it, no use, so I wrote £
-    this function to do the converting myself. £
+    I should not need to write such a stupid function to convert String to Int Â£
+    However, the sscanf() function does not work for me to input hex number from Â£
+    input string. I spent some time to debug it, no use, so I wrote Â£
+    this function to do the converting myself. Â£
     Someone could help me to elimiate this funciton
  =======================================================================================================================
  */
@@ -834,3 +848,4 @@ void chopm(char *str)
 		i--;
 	}
 }
+
