@@ -65,6 +65,29 @@ enum DMATYPE	SPDMAInProgress = NO_DMA_IN_PROGRESS;
 
 void	DMAIncreaseTimer(uint32 val);
 
+/* Plus V3 owns PI access while polling synchronous SRAM transfers, but does
+ * not consume their libultra PI messages. Posting one leaves a stale event
+ * that can complete the next queued ROM DMA before its data arrives.
+ * This compatibility exception suppresses only that driver's SRAM event;
+ * ROM DMA and the shared SP/SI/audio timing option retain normal behavior.
+ * Bind it to the exact build, bounce buffer, range and bus timings. Other
+ * SRAM drivers, including interrupt-driven ones, still get their event. */
+static BOOL PIUsesPolledSRAMCompletion(void)
+{
+	uint32 cart = PI_CART_ADDR_REG & 0x1FFFFFFF;
+	return currentromoptions.Save_Type == SRAM_SAVETYPE &&
+		gamesave.firstusedsavemedia != FLASHRAM_SAVETYPE &&
+		currentromoptions.countrycode == 0x45 &&
+		currentromoptions.crc1 == 0x90B1D709 &&
+		currentromoptions.crc2 == 0x08DA6DB8 &&
+		(PI_DRAM_ADDR_REG & 0x00FFFFFF) == 0x0006E458 &&
+		PIDMALength > 0 && PIDMALength <= 0x100 &&
+		cart >= MEMORY_START_C2A2 &&
+		cart <= MEMORY_START_C2A2 + SRAM_SIZE - PIDMALength &&
+		PI_BSD_DOM2_LAT_REG == 5 && PI_BSD_DOM2_PWD_REG == 12 &&
+		PI_BSD_DOM2_PGS_REG == 13 && PI_BSD_DOM2_RLS_REG == 2;
+}
+
 /*
  =======================================================================================================================
     Initialize the DMA
@@ -214,7 +237,8 @@ void DMA_PI_MemCopy_From_DRAM_To_Cart(void)
 		}
 		PIDMAInProgress = NO_DMA_IN_PROGRESS;
 		EXTRA_DMA_TIMING(PIDMALength);
-		Trigger_PIInterrupt();
+		if(!PIUsesPolledSRAMCompletion())
+			Trigger_PIInterrupt();
 		return;
 	}
 
@@ -434,7 +458,8 @@ L1:
 
 		PIDMAInProgress = NO_DMA_IN_PROGRESS;
 		EXTRA_DMA_TIMING(PIDMALength);
-		Trigger_PIInterrupt();
+		if(!PIUsesPolledSRAMCompletion())
+			Trigger_PIInterrupt();
 		return;
 	}
 

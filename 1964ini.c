@@ -152,11 +152,8 @@ void GenerateCurrentRomOptions(void)
 	if(RomListSelectedEntry()->pinientry->Use_HLE == 0) currentromoptions.Use_HLE = defaultoptions.Use_HLE;
 
 	/* GoldenEye 007 Plus release #10 moved saves from 4Kb EEPROM to 32KB SRAM.
-	 * Its polling SRAM driver leaves a PI completion message in libultra's
-	 * event queue. A subsequent managed ROM DMA can consume that stale message
-	 * before a segmented transfer has copied the data. Use synchronous PI
-	 * copies for this build so the reply cannot expose an unfinished load.
-	 * Apply after defaults, and keep older EEPROM builds on their own settings. */
+	 * The ROM keeps the same public title as earlier EEPROM builds, so key this
+	 * override to the internal ROM CRC instead of the title/header. */
 	if
 	(
 		RomListSelectedEntry()->pinientry->countrycode == 0x45
@@ -166,7 +163,6 @@ void GenerateCurrentRomOptions(void)
 	)
 	{
 		currentromoptions.Save_Type = SRAM_SAVETYPE;
-		currentromoptions.DMA_Segmentation = USEDMASEG_NO;
 	}
 
 	if(RomListSelectedEntry()->pinientry->countrycode == 0x45) // if USA ROM
