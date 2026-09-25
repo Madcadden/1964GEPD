@@ -16,9 +16,11 @@ Fixes flashing or broken split-screen views in recognized GoldenEye ROM mods whe
 
 Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus's Native Test Mode. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
-The v0.2.2 download has been updated in place. Fixes the confirmed freezes and pixelated output while scrolling textures in **GoldenEye 007 Plus's Map Maker**, including scrolling backwards with **J**. Texture selection stays within the valid list, and affected IA4 textures load correctly. This correction is in the updated `1964.exe`; the included Mouse Injector v0.3.2 DLL is unchanged. It applies to the verified Plus layout and supports compatible older saves.
+The v0.2.2 download has been updated in place. Fixes the confirmed freezes and pixelated output while scrolling textures in **GoldenEye 007 Plus's Map Maker**, including scrolling backwards with **J**. Texture selection stays within the valid list, and affected IA4 textures load correctly.
 
- This update fixes the black screen after confirming **Exit** in GoldenEye 007 Plus’s **Native Test Mode**. Exit now returns to Map Maker with the current map intact. Replace `1964.exe` with this updated build and cold-boot the ROM. The included Mouse Injector v0.3.2 DLL is unchanged.
+Fixes the black screen after confirming **Exit** in GoldenEye 007 Plus’s **Native Test Mode**. Exit now returns to Map Maker with the current map intact.
+
+Both fixes now recognize **GoldenEye 007 Plus by its ROM header** and follow compatible relocated code, including the newer Plus release. Both have been confirmed in use. Compatible future layouts can be recognized; rewritten or ambiguous code is left unchanged. Replace `1964.exe` with the updated build and cold-boot the ROM. No ROM header editing is needed. The included Mouse Injector v0.3.2 DLL is unchanged.
 
 ## GoldenEye 007 Plus support
 
