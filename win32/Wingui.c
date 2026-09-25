@@ -4357,7 +4357,10 @@ void GEFiringRateHack(void)
 		}
 	}
 
-	GEPatchRAMFiringRate();
+	/* Authenticated paged games execute this code through the patched ROM
+	 * mapping. Searching their full RDRAM every timer tick is unnecessary. */
+	if(!resolution->rommappingvalid)
+		GEPatchRAMFiringRate();
 	GEPatchWatchLaserWeapon();
 }
 
@@ -4366,9 +4369,10 @@ void GEDisableHeadRoll(void)
 	int index;
 	const GE_HACK_RESOLUTION *resolution = GEGetHackResolution();
 
-	/* RAM-loaded mods need the live copy patched even after their ROM copy
-	 * was changed, or after the loader has already copied it. */
-	GEPatchRAMHeadRoll();
+	/* Physical-RAM loaders need their live copy reconciled. Paged games
+	 * already execute the ROM patch and must not scan all RDRAM here. */
+	if(!resolution->rommappingvalid)
+		GEPatchRAMHeadRoll();
 	if(!resolution->headrollvalid)
 		return;
 
