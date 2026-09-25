@@ -3196,10 +3196,13 @@ static unsigned int pdSpeedContext[27];
 static unsigned int geRAMHeadRollSite = 0;
 static unsigned int geRAMHeadRollContext[12];
 
+static void GETextureResetResolution(void);
+
 /* A new boot must never inherit addresses from another image with the same CRC. */
 static void GEPDResetHackResolution(void)
 {
 	GEPDRestoreROMHacks();
+	GETextureResetResolution();
 	memset(&geResolution, 0, sizeof(geResolution));
 	geResolutionInitialized = FALSE;
 	geRAMFiringSite = 0;
@@ -3578,72 +3581,262 @@ static void GEReconcileNativeEditorReturn(void)
 			GEPDWriteRAMCode(GE_EDITOR_TITLE_RAM + index * 4, geeditorpatched[index]);
 }
 
-/* Plus Map Maker textures: the user-validated 112-byte correction.
- * Admit the complete known layout, including the compressed texture table,
- * before changing either cartridge source or resident save-state code. */
-#define GE_TEXTURE_ROM_ADD 0x805CB4D0U
+/* Plus Map Maker textures: choose by the cartridge title, then locate the
+ * compatible routines independently of ROM revisions and unrelated editor code.
+ * Only address operands identified in the texture routines are normalized;
+ * resident code must also match every exact operand in this cartridge image. */
 typedef struct GE_TEXTURE_PATCH
 {
     unsigned int ram, original, patched;
 } GE_TEXTURE_PATCH;
-static const GE_TEXTURE_PATCH geTexturePatches[] = {
-	{0x80627204U, 0x29C10BB8U, 0x29C10A8AU},
-	{0x8062A568U, 0x2A010BB8U, 0x2A010A8AU},
-	{0x8062A56CU, 0x24100BB7U, 0x24100A89U},
-	{0x8062A570U, 0x2A010BB8U, 0x2A010A8AU},
-	{0x806EFED8U, 0x27BDFFD8U, 0x27BDFFE0U},
-	{0x806EFEDCU, 0xAFB20020U, 0xAFBF001CU},
-	{0x806EFEE0U, 0xAFB00018U, 0xAFB00018U},
-	{0x806EFEE4U, 0x00A09025U, 0xAFB10014U},
-	{0x806EFEE8U, 0xAFBF0024U, 0x24080018U},
-	{0x806EFEECU, 0xAFB1001CU, 0x16880002U},
-	{0x806EFEF0U, 0x18A00008U, 0x00808021U},
-	{0x806EFEF4U, 0x00008025U, 0x03C58021U},
-	{0x806EFEF8U, 0x00808825U, 0x18A00007U},
-	{0x806EFEFCU, 0x0C1BC93BU, 0x00A08821U},
-	{0x806EFF00U, 0x24040001U, 0x0C1BC93BU},
-	{0x806EFF04U, 0x26100001U, 0x24040001U},
-	{0x806EFF08U, 0x26310001U, 0xA2020000U},
-	{0x806EFF0CU, 0x1612FFFBU, 0x2631FFFFU},
-	{0x806EFF10U, 0xA222FFFFU, 0x1620FFFBU},
-	{0x806EFF14U, 0x8FBF0024U, 0x26100001U},
-	{0x806EFF18U, 0x8FB00018U, 0x8FBF001CU},
-	{0x806EFF1CU, 0x8FB1001CU, 0x8FB00018U},
-	{0x806EFF20U, 0x8FB20020U, 0x8FB10014U},
-	{0x806EFF24U, 0x03E00008U, 0x03E00008U},
-	{0x806EFF28U, 0x27BD0028U, 0x27BD0020U},
-	{0x806F0BD8U, 0x03203025U, 0x00193042U},
-	{0x806F0BF4U, 0x000E7880U, 0x01C07821U},
-	{0x806F0BF8U, 0x01EE7823U, 0x00000000U},
+static GE_TEXTURE_PATCH geTexturePatches[28];
+typedef struct GE_TEXTURE_TEMPLATE
+{
+    unsigned int context, offset, original, patched;
+} GE_TEXTURE_TEMPLATE;
+static const GE_TEXTURE_TEMPLATE geTextureTemplates[] = {
+    {0U, 0x0018U, 0x29C10BB8U, 0x29C10A8AU},
+    {1U, 0x0068U, 0x2A010BB8U, 0x2A010A8AU},
+    {1U, 0x006CU, 0x24100BB7U, 0x24100A89U},
+    {1U, 0x0070U, 0x2A010BB8U, 0x2A010A8AU},
+    {3U, 0x0000U, 0x27BDFFD8U, 0x27BDFFE0U},
+    {3U, 0x0004U, 0xAFB20020U, 0xAFBF001CU},
+    {3U, 0x0008U, 0xAFB00018U, 0xAFB00018U},
+    {3U, 0x000CU, 0x00A09025U, 0xAFB10014U},
+    {3U, 0x0010U, 0xAFBF0024U, 0x24080018U},
+    {3U, 0x0014U, 0xAFB1001CU, 0x16880002U},
+    {3U, 0x0018U, 0x18A00008U, 0x00808021U},
+    {3U, 0x001CU, 0x00008025U, 0x03C58021U},
+    {3U, 0x0020U, 0x00808825U, 0x18A00007U},
+    {3U, 0x0024U, 0x0C1BC93BU, 0x00A08821U},
+    {3U, 0x0028U, 0x24040001U, 0x0C1BC93BU},
+    {3U, 0x002CU, 0x26100001U, 0x24040001U},
+    {3U, 0x0030U, 0x26310001U, 0xA2020000U},
+    {3U, 0x0034U, 0x1612FFFBU, 0x2631FFFFU},
+    {3U, 0x0038U, 0xA222FFFFU, 0x1620FFFBU},
+    {3U, 0x003CU, 0x8FBF0024U, 0x26100001U},
+    {3U, 0x0040U, 0x8FB00018U, 0x8FBF001CU},
+    {3U, 0x0044U, 0x8FB1001CU, 0x8FB00018U},
+    {3U, 0x0048U, 0x8FB20020U, 0x8FB10014U},
+    {3U, 0x004CU, 0x03E00008U, 0x03E00008U},
+    {3U, 0x0050U, 0x27BD0028U, 0x27BD0020U},
+    {4U, 0x09A4U, 0x03203025U, 0x00193042U},
+    {4U, 0x09C0U, 0x000E7880U, 0x01C07821U},
+    {4U, 0x09C4U, 0x01EE7823U, 0x00000000U},
 };
 typedef struct GE_TEXTURE_CONTEXT
 {
     unsigned int ram, words, originalHash, patchedHash;
+    unsigned int rom, cache;
 } GE_TEXTURE_CONTEXT;
-static const GE_TEXTURE_CONTEXT geTextureContexts[] = {
-	{0x806271ECU, 36U, 0x4FE32B99U, 0x629C34E7U},
-	{0x8062A500U, 59U, 0xE5D79DC7U, 0xA588026DU},
-	{0x806EE248U, 614U, 0x562B0773U, 0x562B0773U},
-	{0x806EFED8U, 21U, 0xBF09E338U, 0xCA168E28U},
-	{0x806F0234U, 699U, 0xED9B790DU, 0xE38E6ACEU},
-	{0x806F0D20U, 1556U, 0x9F2682BFU, 0x9F2682BFU},
+static GE_TEXTURE_CONTEXT geTextureContexts[] = {
+    {0U, 36U, 0xF1D14DABU, 0x949CBD15U, 0U, 0U}, /* validator */
+    {0U, 59U, 0xF9A27968U, 0xBFECF5CEU, 0U, 36U}, /* cycle */
+    {0U, 614U, 0xFB4081EAU, 0xFB4081EAU, 0U, 95U}, /* decode */
+    {0U, 21U, 0xB7FDFAA7U, 0x472F492DU, 0U, 709U}, /* alpha */
+    {0U, 699U, 0xD7BC42EFU, 0x01EF0360U, 0U, 730U}, /* pixels */
+    {0U, 1556U, 0x845F3AA0U, 0x845F3AA0U, 0U, 1429U}, /* loader */
 };
-#define GE_TEXTURE_DATA_HASH 0x8B4FAF25U
-
-static unsigned int GETextureHash(BOOL ram, unsigned int address, unsigned int words)
+/* Low address operands: verified independently from the original and V2
+ * disassemblies. Branch displacements, arithmetic constants and register
+ * operands remain exact. J/JAL destinations and LUI address halves relocate. */
+typedef struct GE_TEXTURE_ADDRESS
 {
-    unsigned int index, hash = 2166136261U;
-    unsigned int offset = ram ? address - 0x80000000U : address;
-    unsigned int length = ram ? current_rdram_size : gAllocationLength;
-    if((address & 3U) || (ram && (address < 0x80000000U || address >= 0x80800000U)) ||
-        offset > length || words > (length - offset) / 4U)
-        return 0;
-    for(index = 0; index < words; index++)
+    unsigned int context, offset;
+} GE_TEXTURE_ADDRESS;
+static const GE_TEXTURE_ADDRESS geTextureAddresses[] = {
+    {0U, 0x0000002CU},
+    {1U, 0x00000004U},
+    {1U, 0x00000034U},
+    {1U, 0x000000B4U},
+    {1U, 0x000000C8U},
+    {2U, 0x00000008U},
+    {2U, 0x00000050U},
+    {2U, 0x00000054U},
+    {2U, 0x00000068U},
+    {2U, 0x0000006CU},
+    {2U, 0x000001C4U},
+    {2U, 0x000001F0U},
+    {2U, 0x00000214U},
+    {2U, 0x000002A0U},
+    {2U, 0x000002E8U},
+    {2U, 0x000002F0U},
+    {2U, 0x00000324U},
+    {2U, 0x00000378U},
+    {2U, 0x00000398U},
+    {2U, 0x000003DCU},
+    {2U, 0x0000043CU},
+    {2U, 0x0000046CU},
+    {2U, 0x000004D0U},
+    {2U, 0x00000520U},
+    {2U, 0x0000058CU},
+    {2U, 0x000005F4U},
+    {2U, 0x00000604U},
+    {2U, 0x00000668U},
+    {2U, 0x000006CCU},
+    {2U, 0x00000710U},
+    {2U, 0x00000738U},
+    {2U, 0x000007C0U},
+    {2U, 0x000007E4U},
+    {2U, 0x000007F4U},
+    {2U, 0x00000860U},
+    {4U, 0x00000048U},
+    {5U, 0x0000006CU},
+    {5U, 0x00000428U},
+    {5U, 0x00000E0CU},
+    {5U, 0x0000100CU},
+    {5U, 0x00001288U},
+    {5U, 0x00001290U},
+    {5U, 0x00001298U},
+    {5U, 0x000012B0U},
+    {5U, 0x000012C8U},
+    {5U, 0x000013E8U},
+    {5U, 0x000013F8U},
+    {5U, 0x00001410U},
+    {5U, 0x00001444U},
+    {5U, 0x0000144CU},
+    {5U, 0x0000145CU},
+    {5U, 0x00001490U},
+    {5U, 0x00001498U},
+    {5U, 0x000014CCU},
+    {5U, 0x00001538U},
+    {5U, 0x00001584U},
+    {5U, 0x000015A4U},
+    {5U, 0x000015C0U},
+    {5U, 0x00001618U},
+    {5U, 0x00001640U},
+    {5U, 0x000017B4U},
+    {5U, 0x000017BCU},
+    {5U, 0x000017C8U},
+    {5U, 0x000017D0U},
+    {5U, 0x000017DCU},
+    {5U, 0x000017ECU},
+    {5U, 0x00001828U},
+};
+static unsigned int geTextureOriginalCode[2985];
+static unsigned int geTexturePatchedCode[2985];
+static BOOL geTextureResolutionInitialized = FALSE;
+static BOOL geTextureResolutionValid = FALSE;
+static unsigned int geTextureROMAdd = 0;
+static unsigned int geTextureTable = 0;
+
+static void GETextureResetResolution(void)
+{
+    unsigned int index;
+    geTextureResolutionInitialized = FALSE;
+    geTextureResolutionValid = FALSE;
+    geTextureROMAdd = 0;
+    geTextureTable = 0;
+    memset(geTexturePatches, 0, sizeof(geTexturePatches));
+    for(index = 0; index < sizeof(geTextureContexts) / sizeof(geTextureContexts[0]); index++)
     {
-        hash ^= ram ? LOAD_UWORD_PARAM(address + index * 4U) : GEReadROMWord(address + index * 4U);
+        geTextureContexts[index].ram = 0;
+        geTextureContexts[index].rom = 0;
+    }
+}
+
+static BOOL GETexturePlusTitle(void)
+{
+    static const char title[] = "GOLDENEYE 007 PLUS";
+    unsigned int start, index, value;
+    if(gMemoryState.ROM_Image == NULL || gAllocationLength < 0x40U)
+        return FALSE;
+    /* Read exactly the 20-byte title from word-swapped emulator storage. */
+    for(start = 0; start + sizeof(title) - 1U <= 20U; start++)
+    {
+        for(index = 0; index < sizeof(title) - 1U; index++)
+        {
+            value = GEReadROMWord(0x20U + ((start + index) & ~3U));
+            value = (value >> ((3U - ((start + index) & 3U)) * 8U)) & 0xFFU;
+            if(value >= 'a' && value <= 'z')
+                value -= 'a' - 'A';
+            if(value != (unsigned int)title[index])
+                break;
+        }
+        if(index == sizeof(title) - 1U)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL GETextureROMBounds(unsigned int address, unsigned int words)
+{
+    return (address & 3U) == 0 && address <= gAllocationLength &&
+        words <= (gAllocationLength - address) / 4U;
+}
+
+static unsigned int GETextureWordMask(unsigned int context, unsigned int offset,
+    unsigned int word)
+{
+    unsigned int index, opcode = word >> 26;
+    if(opcode == 2U || opcode == 3U)
+        return 0xFC000000U;
+    if(opcode == 15U)
+        return 0xFFFF0000U;
+    for(index = 0; index < sizeof(geTextureAddresses) / sizeof(geTextureAddresses[0]); index++)
+        if(geTextureAddresses[index].context == context &&
+            geTextureAddresses[index].offset == offset)
+            return 0xFFFF0000U;
+    return 0xFFFFFFFFU;
+}
+
+static unsigned int GETextureNormalizedHash(unsigned int context, unsigned int address)
+{
+    unsigned int index, word, hash = 2166136261U;
+    if(!GETextureROMBounds(address, geTextureContexts[context].words))
+        return 0;
+    for(index = 0; index < geTextureContexts[context].words; index++)
+    {
+        word = GEReadROMWord(address + index * 4U);
+        hash ^= word & GETextureWordMask(context, index * 4U, word);
         hash *= 16777619U;
     }
     return hash;
+}
+
+static unsigned int GETextureFindRoutine(unsigned int context, BOOL *patched)
+{
+    /* Cheap exact instruction prefixes keep the whole-ROM search bounded. */
+    static const unsigned int prefix[3][4] = {
+        {0x308EFFFFU, 0xAFA40000U, 0x3401FFFFU, 0x01C02025U},
+        {0x3C0E0000U, 0x8DCE0000U, 0x27BDFFD0U, 0xAFB00018U},
+        {0x27BDFFD8U, 0xAFB20020U, 0xAFB00018U, 0x00A09025U}
+    };
+    static const unsigned int alphaPatched[4] = {
+        0x27BDFFE0U, 0xAFBF001CU, 0xAFB00018U, 0xAFB10014U
+    };
+    unsigned int offset, index, value, hash, found = 0;
+    unsigned int row = context == 3U ? 2U : context;
+    BOOL originalPrefix, patchedPrefix;
+    if(gAllocationLength < geTextureContexts[context].words * 4U)
+        return 0;
+    for(offset = 0x1000U; offset <= gAllocationLength - geTextureContexts[context].words * 4U; offset += 4U)
+    {
+        originalPrefix = TRUE;
+        patchedPrefix = context == 3U;
+        for(index = 0; index < 4U; index++)
+        {
+            value = GEReadROMWord(offset + index * 4U);
+            value &= context == 1U && index < 2U ? 0xFFFF0000U : 0xFFFFFFFFU;
+            if(value != prefix[row][index])
+                originalPrefix = FALSE;
+            if(context != 3U || value != alphaPatched[index])
+                patchedPrefix = FALSE;
+            if(!originalPrefix && !patchedPrefix)
+                break;
+        }
+        if(!originalPrefix && !patchedPrefix)
+            continue;
+        hash = GETextureNormalizedHash(context, offset);
+        if(hash != geTextureContexts[context].originalHash &&
+            hash != geTextureContexts[context].patchedHash)
+            continue;
+        if(found != 0)
+            return 0;
+        found = offset;
+        *patched = hash == geTextureContexts[context].patchedHash;
+    }
+    return found;
 }
 
 static BOOL GETexturePatchMatches(BOOL ram, BOOL patched)
@@ -3653,7 +3846,7 @@ static BOOL GETexturePatchMatches(BOOL ram, BOOL patched)
     {
         const GE_TEXTURE_PATCH *patch = &geTexturePatches[index];
         unsigned int value = patched ? patch->patched : patch->original;
-        if(!GEEditorWordsMatch(ram, ram ? patch->ram : patch->ram - GE_TEXTURE_ROM_ADD, &value, 1))
+        if(!GEEditorWordsMatch(ram, ram ? patch->ram : patch->ram - geTextureROMAdd, &value, 1))
             return FALSE;
     }
     return TRUE;
@@ -3662,13 +3855,110 @@ static BOOL GETexturePatchMatches(BOOL ram, BOOL patched)
 static BOOL GETextureContextMatches(BOOL ram, BOOL patched)
 {
     unsigned int index;
+    const unsigned int *code = patched ? geTexturePatchedCode : geTextureOriginalCode;
     for(index = 0; index < sizeof(geTextureContexts) / sizeof(geTextureContexts[0]); index++)
     {
         const GE_TEXTURE_CONTEXT *context = &geTextureContexts[index];
-        if(GETextureHash(ram, ram ? context->ram : context->ram - GE_TEXTURE_ROM_ADD,
-            context->words) != (patched ? context->patchedHash : context->originalHash))
+        if(!GEEditorWordsMatch(ram, ram ? context->ram : context->rom,
+            code + context->cache, context->words))
             return FALSE;
     }
+    return TRUE;
+}
+
+static unsigned int GETextureCallTarget(unsigned int address)
+{
+    unsigned int word = GEReadROMWord(address);
+    return (word >> 26) == 3U ? 0x80000000U | ((word & 0x03FFFFFFU) << 2) : 0;
+}
+
+static BOOL GETextureResolve(void)
+{
+    static const unsigned int alphaCalls[5] = {0x338U, 0x3F0U, 0x480U, 0x67CU, 0x74CU};
+    unsigned int index, word, target, alpha, address, cache;
+    BOOL validatorPatched = FALSE, cyclePatched = FALSE, alphaPatched = FALSE;
+    if(geTextureResolutionInitialized)
+        return geTextureResolutionValid;
+    geTextureResolutionInitialized = TRUE;
+    if(!GETexturePlusTitle())
+        return FALSE;
+    geTextureContexts[0].rom = GETextureFindRoutine(0U, &validatorPatched);
+    geTextureContexts[1].rom = GETextureFindRoutine(1U, &cyclePatched);
+    alpha = GETextureFindRoutine(3U, &alphaPatched);
+    if(!geTextureContexts[0].rom || !geTextureContexts[1].rom || alpha < 0x1C90U ||
+        validatorPatched != cyclePatched || validatorPatched != alphaPatched ||
+        alpha > gAllocationLength || gAllocationLength - alpha < 0x2698U)
+        return FALSE;
+    geTextureContexts[2].rom = alpha - 0x1C90U;
+    geTextureContexts[3].rom = alpha;
+    geTextureContexts[4].rom = alpha + 0x35CU;
+    geTextureContexts[5].rom = alpha + 0xE48U;
+    for(index = 0; index < sizeof(geTextureContexts) / sizeof(geTextureContexts[0]); index++)
+    {
+        const GE_TEXTURE_CONTEXT *context = &geTextureContexts[index];
+        if(GETextureNormalizedHash(index, context->rom) !=
+            (alphaPatched ? context->patchedHash : context->originalHash))
+            return FALSE;
+    }
+    /* The alpha helper calls this reader inside the validated tail context.
+     * Its absolute target establishes the physical code mapping. */
+    target = GETextureCallTarget(alpha + (alphaPatched ? 0x28U : 0x24U));
+    if(target < 0x80000000U || target >= 0x80800000U || target < alpha + 0x2614U)
+        return FALSE;
+    geTextureROMAdd = target - (alpha + 0x2614U);
+    for(index = 0; index < sizeof(geTextureContexts) / sizeof(geTextureContexts[0]); index++)
+    {
+        GE_TEXTURE_CONTEXT *context = &geTextureContexts[index];
+        if(context->rom > 0xFFFFFFFFU - geTextureROMAdd)
+            return FALSE;
+        context->ram = context->rom + geTextureROMAdd;
+        if(context->ram < 0x80000000U || context->ram >= 0x80800000U ||
+            context->words > (0x80800000U - context->ram) / 4U)
+            return FALSE;
+    }
+    if(GETextureCallTarget(geTextureContexts[1].rom + 0x80U) != geTextureContexts[0].ram ||
+        GETextureCallTarget(geTextureContexts[1].rom + 0xA4U) != geTextureContexts[0].ram)
+        return FALSE;
+    for(index = 0; index < sizeof(alphaCalls) / sizeof(alphaCalls[0]); index++)
+        if(GETextureCallTarget(geTextureContexts[2].rom + alphaCalls[index]) != geTextureContexts[3].ram)
+            return FALSE;
+    word = GEReadROMWord(geTextureContexts[0].rom + 0x20U);
+    target = GEReadROMWord(geTextureContexts[0].rom + 0x2CU);
+    if((word & 0xFFFF0000U) != 0x3C060000U || (target & 0xFFFF0000U) != 0x24C60000U)
+        return FALSE;
+    geTextureTable = ((word & 0xFFFFU) << 16) + (int)(short)(target & 0xFFFFU);
+    if((geTextureTable & 3U) || geTextureTable < 0x80000000U ||
+        geTextureTable > 0x80800000U - 2699U * 8U)
+        return FALSE;
+    target = GEReadROMWord(alpha + (alphaPatched ? 0x28U : 0x24U));
+    for(index = 0; index < sizeof(geTexturePatches) / sizeof(geTexturePatches[0]); index++)
+    {
+        const GE_TEXTURE_TEMPLATE *source = &geTextureTemplates[index];
+        GE_TEXTURE_PATCH *patch = &geTexturePatches[index];
+        patch->ram = geTextureContexts[source->context].ram + source->offset;
+        patch->original = (source->original >> 26) == 3U ? target : source->original;
+        patch->patched = (source->patched >> 26) == 3U ? target : source->patched;
+    }
+    if(!GETexturePatchMatches(FALSE, alphaPatched))
+        return FALSE;
+    for(index = 0; index < sizeof(geTextureContexts) / sizeof(geTextureContexts[0]); index++)
+    {
+        const GE_TEXTURE_CONTEXT *context = &geTextureContexts[index];
+        for(word = 0; word < context->words; word++)
+        {
+            address = GEReadROMWord(context->rom + word * 4U);
+            geTextureOriginalCode[context->cache + word] = address;
+            geTexturePatchedCode[context->cache + word] = address;
+        }
+    }
+    for(index = 0; index < sizeof(geTexturePatches) / sizeof(geTexturePatches[0]); index++)
+    {
+        const GE_TEXTURE_TEMPLATE *source = &geTextureTemplates[index];
+        cache = geTextureContexts[source->context].cache + source->offset / 4U;
+        geTextureOriginalCode[cache] = geTexturePatches[index].original;
+        geTexturePatchedCode[cache] = geTexturePatches[index].patched;
+    }
+    geTextureResolutionValid = TRUE;
     return TRUE;
 }
 
@@ -3700,14 +3990,16 @@ static const GE_EDITOR_CONTEXT geTextureThreadContexts[] = {
 
 static BOOL GETexturePCActive(unsigned int address)
 {
-    /* Physical, cached and uncached aliases share the same guest code. */
     if(address >= 0xA0000000U && address < 0xA0800000U)
         address -= 0x20000000U;
     else if(address < 0x00800000U)
         address += 0x80000000U;
-    return (address >= 0x806271ECU && address < 0x8062727CU) ||
-        (address >= 0x8062A500U && address < 0x8062A5ECU) ||
-        (address >= 0x806EE248U && address < 0x806F2570U);
+    return (address >= geTextureContexts[0].ram &&
+            address < geTextureContexts[0].ram + geTextureContexts[0].words * 4U) ||
+        (address >= geTextureContexts[1].ram &&
+            address < geTextureContexts[1].ram + geTextureContexts[1].words * 4U) ||
+        (address >= geTextureContexts[2].ram &&
+            address < geTextureContexts[5].ram + geTextureContexts[5].words * 4U);
 }
 
 static BOOL GETextureThreadsSafe(void)
@@ -3751,27 +4043,25 @@ static void GEReconcileEditorTextures(void)
     BOOL original;
     if(!gepdGameEntryReached || emustatus.game_hack != GHACK_GE ||
         gMemoryState.ROM_Image == NULL || gMS_RDRAM == NULL ||
-        rominfo.TV_System != TV_SYSTEM_NTSC || current_rdram_size < 0x800000U || GEUsesROMCodeMapping())
+        current_rdram_size < 0x800000U || !GETextureResolve() || GEUsesROMCodeMapping())
         return;
     original = GETexturePatchMatches(FALSE, FALSE);
     if(!original && (!GETexturePatchMatches(FALSE, TRUE) || !GETexturePatchMatches(TRUE, FALSE)))
         return;
-    if(!GEEditorContextMatches(FALSE) || !GETextureContextMatches(FALSE, !original) ||
-        GETextureHash(FALSE, 0x00021990U, 17597U) != GE_TEXTURE_DATA_HASH)
+    if(!GETextureContextMatches(FALSE, !original))
         return;
     if(original)
     {
         /* One owned group: never restore or admit a mixture of corrections. */
         for(index = 0; index < sizeof(geTexturePatches) / sizeof(geTexturePatches[0]); index++)
-            GERecordROMPatch(5, index, geTexturePatches[index].ram - GE_TEXTURE_ROM_ADD,
+            GERecordROMPatch(5, index, geTexturePatches[index].ram - geTextureROMAdd,
                 geTexturePatches[index].patched);
         for(index = 0; index < sizeof(geTexturePatches) / sizeof(geTexturePatches[0]); index++)
-            GEWriteROMWord(geTexturePatches[index].ram - GE_TEXTURE_ROM_ADD, geTexturePatches[index].patched);
+            GEWriteROMWord(geTexturePatches[index].ram - geTextureROMAdd, geTexturePatches[index].patched);
     }
-    if(!GETexturePatchMatches(TRUE, FALSE) || !GEEditorContextMatches(TRUE) ||
-        !GETextureContextMatches(TRUE, FALSE) ||
-        LOAD_UWORD_PARAM(0x8004EBF8U) != 0x002EE9DBU ||
-        LOAD_UWORD_PARAM(0x8004EC00U) != 0x002EEF18U)
+    if(!GETexturePatchMatches(TRUE, FALSE) || !GETextureContextMatches(TRUE, FALSE) ||
+        LOAD_UWORD_PARAM(geTextureTable + 2697U * 8U) != 0x002EE9DBU ||
+        LOAD_UWORD_PARAM(geTextureTable + 2698U * 8U) != 0x002EEF18U)
         return;
     /* A save may interrupt the old helper (including a suspended thread).
      * Its frame must finish before installing the new stack layout. */
