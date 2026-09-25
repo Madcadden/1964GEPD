@@ -20,7 +20,7 @@ The v0.2.2 download has been updated in place. Fixes the confirmed freezes and p
 
 Fixes the black screen after confirming **Exit** in GoldenEye 007 Plus’s **Native Test Mode**. Exit now returns to Map Maker with the current map intact.
 
-Both fixes now recognize **GoldenEye 007 Plus by its ROM header** and follow compatible relocated code, including the newer Plus release. Both have been confirmed in use. Compatible future layouts can be recognized; rewritten or ambiguous code is left unchanged. Replace `1964.exe` with the updated build and cold-boot the ROM. No ROM header editing is needed. The included Mouse Injector v0.3.2 DLL is unchanged.
+Both fixes now recognize **GoldenEye 007 Plus by its ROM header** and follow compatible relocated code, including the newer Plus release. Both have been confirmed in use. Compatible future layouts can be recognized; rewritten or ambiguous code is left unchanged. Replace `1964.exe` with the updated build and cold-boot the ROM. No ROM header editing is needed. Use the matching Mouse Injector v0.3.2 included in the package.
 
 ## GoldenEye 007 Plus support
 

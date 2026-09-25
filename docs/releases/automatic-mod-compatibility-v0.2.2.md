@@ -6,7 +6,7 @@ Fixes the confirmed freezes and pixelated output while scrolling textures in **G
 
 Fixes the black screen after confirming **Exit** in GoldenEye 007 Plus’s **Native Test Mode**. Exit now returns to Map Maker with the current map intact.
 
-Both fixes now recognize **GoldenEye 007 Plus by its ROM header** and follow compatible relocated code, including the newer Plus release. Both have been confirmed in use. Compatible future layouts can be recognized; rewritten or ambiguous code is left unchanged. Replace `1964.exe` with the updated build and cold-boot the ROM. No ROM header editing is needed. The included Mouse Injector v0.3.2 DLL is unchanged.
+Both fixes now recognize **GoldenEye 007 Plus by its ROM header** and follow compatible relocated code, including the newer Plus release. Both have been confirmed in use. Compatible future layouts can be recognized; rewritten or ambiguous code is left unchanged. Replace `1964.exe` with the updated build and cold-boot the ROM. No ROM header editing is needed. Use the matching Mouse Injector v0.3.2 included in the package.
 
 **Josh's [GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus) is now supported**, including mouse controls for its Map Maker and menus. GoldenEye Plus also includes **1–4-player local co-op**, developed by Josh and the mod's contributors.
 
@@ -18,7 +18,6 @@ This build automatically finds GoldenEye's relocated game segment and the correc
 - Adds Map Maker free-camera mouse look and mouse selection in the Basic/Advanced chooser and editor menu.
 - Adds mouse navigation to GoldenEye 007 Plus's Map Maker editing pause menus, plus multiplayer and confirmation menus that use directional input.
 - Adds configurable D-pad and L/R shoulder bindings. Existing settings migrate without resetting your controls or FOV.
-- Makes R usable for Plus's native interact/reload action during gameplay; E retains its native action.
 - Improves Perfect Dark FOV/settings discovery and automatically locates its 60 FPS and head-roll controls. The menu now labels Disable Head Roll for GE/PD.
 - Prepares relocated ROM code before the mod loader, applies later code updates on the emulation thread and restores owned patches across Stop/Play.
 
@@ -75,9 +74,9 @@ The download has been updated in place; the version remains v0.2.2.
 
 **SHA-256**
 
-- ZIP: `07ba7b394c59162420823e3e4e3da6296b933e8c301158822c942e7e3f9d4d8d`
+- ZIP: `e1c5f36d70cd4246b957ad5d288407489c7c58c568480967ea71873421177c0a`
 - `1964.exe`: `5d8263ffdc0f52d4a05a240e66cc0083e43165b68df75663017bc85eb416c2ea`
-- `plugin/Mouse_Injector.dll`: `9d1c3df81c70601ff9bb7e7dd97c8cfa641ef3104f844d2c4d6e727468c798fd`
+- `plugin/Mouse_Injector.dll`: `33a3a9d2738fd7510dee31f5c3f4fa72bc6e1a9a49710aaf98570a8f48301183`
 
-[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/be617351fed4b51c901d698f25eb43f5175121d7) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)
+[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/be617351fed4b51c901d698f25eb43f5175121d7) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/01d017583e35d9b865dc2ac1c4480a363479fa68)
 
