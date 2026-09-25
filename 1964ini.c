@@ -129,20 +129,6 @@ void GenerateCurrentRomOptions(void)
 	if(RomListSelectedEntry()->pinientry->Save_Type == 0) currentromoptions.Save_Type = defaultoptions.Save_Type;
 	if(RomListSelectedEntry()->pinientry->Use_TLB == 0) currentromoptions.Use_TLB = defaultoptions.Use_TLB;
 
-	/* GoldenEye 007 Plus release #10 moved saves from 4Kb EEPROM to 32KB SRAM.
-	 * The ROM keeps the same public title as earlier EEPROM builds, so key this
-	 * override to the internal ROM CRC instead of the title/header. */
-	if
-	(
-		RomListSelectedEntry()->pinientry->countrycode == 0x45
-	&&	RomListSelectedEntry()->pinientry->crc1 == 0x90B1D709
-	&&	RomListSelectedEntry()->pinientry->crc2 == 0x08DA6DB8
-	&&	!strncmp(rominfo.name, "GoldenEye 007 Plus", 18)
-	)
-	{
-		currentromoptions.Save_Type = SRAM_SAVETYPE;
-	}
-
 	if(RomListSelectedEntry()->pinientry->Counter_Factor == 0)
 		currentromoptions.Counter_Factor = defaultoptions.Counter_Factor;
 
@@ -164,6 +150,24 @@ void GenerateCurrentRomOptions(void)
 		currentromoptions.Assume_32bit = defaultoptions.Assume_32bit;
 
 	if(RomListSelectedEntry()->pinientry->Use_HLE == 0) currentromoptions.Use_HLE = defaultoptions.Use_HLE;
+
+	/* GoldenEye 007 Plus release #10 moved saves from 4Kb EEPROM to 32KB SRAM.
+	 * Its polling SRAM driver leaves a PI completion message in libultra's
+	 * event queue. A subsequent managed ROM DMA can consume that stale message
+	 * before a segmented transfer has copied the data. Use synchronous PI
+	 * copies for this build so the reply cannot expose an unfinished load.
+	 * Apply after defaults, and keep older EEPROM builds on their own settings. */
+	if
+	(
+		RomListSelectedEntry()->pinientry->countrycode == 0x45
+	&&	RomListSelectedEntry()->pinientry->crc1 == 0x90B1D709
+	&&	RomListSelectedEntry()->pinientry->crc2 == 0x08DA6DB8
+	&&	!strncmp(rominfo.name, "GoldenEye 007 Plus", 18)
+	)
+	{
+		currentromoptions.Save_Type = SRAM_SAVETYPE;
+		currentromoptions.DMA_Segmentation = USEDMASEG_NO;
+	}
 
 	if(RomListSelectedEntry()->pinientry->countrycode == 0x45) // if USA ROM
 	{
