@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Verify exact GoldenEye Plus texture compatibility correction integration.
+"""Verify header-selected, relocated GoldenEye Plus texture correction integration.
 
-Supply an original Plus ROM. The script creates synthetic host
+Supply either supported Plus ROM with --layout old or --layout v2. The script creates synthetic host
 buffers and executes the extracted production compatibility code only; it never
 executes guest instructions. No ROM, captured save, or map is included.
 """
@@ -78,11 +78,20 @@ static void assert_nothing_changed(void) {
     assert(!n || !memcmp(rom,gMemoryState.ROM_Image,n));assert(!memcmp(ram,test_rdram,sizeof test_rdram));assert(!invalidations && !pageinvalidations);
     free(rom);free(ram);
 }
+static void set_title(const char *title) {
+    unsigned int i;for(i=0;i<20;i++) gMemoryState.ROM_Image[(0x20U+i)^3U]=' ';
+    for(i=0;i<20 && title[i];i++) gMemoryState.ROM_Image[(0x20U+i)^3U]=(unsigned char)title[i];
+}
 static void expected_patch(unsigned char *rom,unsigned char *ram) {
     unsigned int i;for(i=0;i<sizeof expected/sizeof expected[0];i++) {
         *(unsigned int *)(rom+expected[i].ram-ROM_DELTA)=expected[i].patched;
         *(unsigned int *)(ram+(expected[i].ram&0x7fffffU))=expected[i].patched;
     }
+}
+static void assert_only_expected_patch(void) {
+    unsigned char *rom=malloc(original_rom_length),*ram=malloc(sizeof test_rdram);assert(rom&&ram);
+    memcpy(rom,gMemoryState.ROM_Image,original_rom_length);memcpy(ram,test_rdram,sizeof test_rdram);expected_patch(rom,ram);
+    apply_texture();assert(!memcmp(rom,gMemoryState.ROM_Image,original_rom_length));assert(!memcmp(ram,test_rdram,sizeof test_rdram));free(rom);free(ram);
 }
 static void assert_patched(void) {
     assert(!memcmp(gMemoryState.ROM_Image,patched_rom,original_rom_length));
@@ -132,16 +141,57 @@ int main(int argc,char **argv) {
         reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);LOAD_UWORD_PARAM(ram)=expected[i].patched;assert_nothing_changed();
     }
     /* Context edges, not just modified words, must match in ROM and live RAM. */
-    for(i=0;i<sizeof geTextureContexts/sizeof geTextureContexts[0];i++) {
+    for(i=0;i<sizeof expected_contexts/sizeof expected_contexts[0];i++) {
         unsigned int edge;for(edge=0;edge<2;edge++) {
-            unsigned int ram=geTextureContexts[i].ram+(edge?(geTextureContexts[i].words-1)*4:0),rom=ram-ROM_DELTA;
-            reset_case();GEWriteROMWord(rom,GEReadROMWord(rom)^1U);assert_nothing_changed();
-            reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);LOAD_UWORD_PARAM(ram)^=1U;assert_nothing_changed();
+            unsigned int ram=expected_contexts[i].ram+(edge?(expected_contexts[i].words-1)*4:0),rom=ram-ROM_DELTA;
+            reset_case();GEWriteROMWord(rom,GEReadROMWord(rom)^0x04000000U);assert_nothing_changed();
+            reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);LOAD_UWORD_PARAM(ram)^=0x04000000U;assert_nothing_changed();
         }
     }
-    /* Immutable compressed data identifies this texture count, independently of code. */
-    reset_case();GEWriteROMWord(0x21990U,GEReadROMWord(0x21990U)^1U);assert_nothing_changed();
-    reset_case();GEWriteROMWord(0x21990U+70388U-4U,GEReadROMWord(0x21990U+70388U-4U)^1U);assert_nothing_changed();
+    /* Header admission tolerates case/version suffixes, but remains bounded to the title. */
+    {
+        static const char *accepted[]={"GoldenEye 007 Plus","GOLDENEYE 007 PLUS","goldeneye 007 plus"," GoldenEye 007 Plus ","GoldenEye 007 PlusV2"};
+        static const char *rejected[]={"GOLDENEYE", "GoldenEye 007 Plu", "GoldenEye 007 Plux", "GoldenEye007 Plus", "GoldenEye 007", "", "Perfect Dark"};
+        for(i=0;i<sizeof accepted/sizeof accepted[0];i++) {reset_case();set_title(accepted[i]);assert_only_expected_patch();}
+        for(i=0;i<sizeof rejected/sizeof rejected[0];i++) {reset_case();set_title(rejected[i]);assert_nothing_changed();}
+        reset_case();set_title("GOLDENEYE");
+        {const char *outside="GOLDENEYE 007 PLUS";unsigned int j;for(j=0;outside[j];j++) gMemoryState.ROM_Image[(0x40U+j)^3U]=outside[j];}
+        assert_nothing_changed();
+        reset_case();set_title("xxxGoldenEye 007 Plu");gMemoryState.ROM_Image[0x34U^3U]='s';assert_nothing_changed();
+    }
+    /* Header selection no longer depends on unrelated compressed data or editor functions. */
+    reset_case();GEWriteROMWord(0x21990U,GEReadROMWord(0x21990U)^1U);assert_only_expected_patch();
+    reset_case();GEWriteROMWord(0x21990U+70388U-4U,GEReadROMWord(0x21990U+70388U-4U)^1U);assert_only_expected_patch();
+    reset_case();GEWriteROMWord(0x641F8U,GEReadROMWord(0x641F8U)^0x04000000U);assert_only_expected_patch();
+    reset_case();GEWriteROMWord(0x10U,GEReadROMWord(0x10U)^0x12345678U);assert_only_expected_patch();
+    /* Changed patch instructions cannot be mistaken for an eligible unmodified helper. */
+    for(i=0;i<sizeof expected/sizeof expected[0];i++) {
+        unsigned int rom=expected[i].ram-ROM_DELTA;
+        reset_case();GEWriteROMWord(rom,GEReadROMWord(rom)^0x04000000U);assert_nothing_changed();
+    }
+    /* Candidate functions must be unique even when the copied instructions are exact. */
+    reset_case();
+    memcpy(gMemoryState.ROM_Image+0x200000U,gMemoryState.ROM_Image+expected_contexts[0].ram-ROM_DELTA,expected_contexts[0].words*4U);
+    assert_nothing_changed();
+    /* A relocated ROM load segment retains the same guest RAM addresses and call targets. */
+    reset_case();
+    {
+        unsigned int section,delta=0x200000U;
+        unsigned char *before,*wanted_rom,*wanted_ram;
+        for(section=0;section<3;section++) {
+            unsigned int address=expected_contexts[section].ram-ROM_DELTA;
+            unsigned int length=section<2?expected_contexts[section].words*4U:expected_contexts[5].ram+expected_contexts[5].words*4U-expected_contexts[2].ram;
+            memcpy(gMemoryState.ROM_Image+address+delta,gMemoryState.ROM_Image+address,length);memset(gMemoryState.ROM_Image+address,0,length);
+        }
+        before=malloc(original_rom_length);wanted_rom=malloc(original_rom_length);wanted_ram=malloc(sizeof test_rdram);assert(before&&wanted_rom&&wanted_ram);
+        memcpy(before,gMemoryState.ROM_Image,original_rom_length);memcpy(wanted_rom,before,original_rom_length);memcpy(wanted_ram,test_rdram,sizeof test_rdram);
+        for(i=0;i<sizeof expected/sizeof expected[0];i++) {
+            *(unsigned int *)(wanted_rom+expected[i].ram-ROM_DELTA+delta)=expected[i].patched;
+            *(unsigned int *)(wanted_ram+(expected[i].ram&0x7fffffU))=expected[i].patched;
+        }
+        apply_texture();assert(!memcmp(wanted_rom,gMemoryState.ROM_Image,original_rom_length));assert(!memcmp(wanted_ram,test_rdram,sizeof test_rdram));
+        GEPDRestoreROMHacks();assert(!memcmp(before,gMemoryState.ROM_Image,original_rom_length));free(before);free(wanted_rom);free(wanted_ram);
+    }
     /* Physical and virtual compiled aliases are invalidated for every changed word. */
     reset_case();TLB_sDWORD_R[0x70001]=test_rdram+((expected[0].ram&0x7fffffU)&~0xfffU);apply_texture();assert_patched();
     assert(invalidations==changed && pageinvalidations>2*changed);
@@ -163,12 +213,12 @@ int main(int argc,char **argv) {
         reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);
         first=LOAD_UWORD_PARAM(0x8002772CU);
         switch(i) {
-        case 0:gHWS_pc=0x806EFED8U;break;
-        case 1:gHWS_pc=0xA06F24ECU;break;
-        case 2:gHWS_GPR[31]=0x006EFF08U;break;
-        case 3:gHWS_COP0Reg[STATUS]=2;gHWS_COP0Reg[EPC]=0x806F0240U;break;
-        case 4:LOAD_UWORD_PARAM(first+0x11CU)=0x8062A568U;break;
-        case 5:LOAD_UWORD_PARAM(first+0x104U)=0x806EFED8U;break;
+        case 0:gHWS_pc=TEST_ALPHA;break;
+        case 1:gHWS_pc=TEST_TAIL_PC+0x20000000U;break;
+        case 2:gHWS_GPR[31]=(TEST_ALPHA+0x30U)&0x7fffffU;break;
+        case 3:gHWS_COP0Reg[STATUS]=2;gHWS_COP0Reg[EPC]=TEST_PIXELS+0x0CU;break;
+        case 4:LOAD_UWORD_PARAM(first+0x11CU)=TEST_CYCLE+0x68U;break;
+        case 5:LOAD_UWORD_PARAM(first+0x104U)=TEST_ALPHA;break;
         case 6:LOAD_UWORD_PARAM(first+0x0CU)=first;break;
         case 7:LOAD_UWORD_PARAM(0x8002772CU)=0x807FFF00U;break;
         case 8:LOAD_UWORD_PARAM(0x80027730U)=0x80123458U;break;
@@ -177,7 +227,7 @@ int main(int argc,char **argv) {
         case 11:
             LOAD_UWORD_PARAM(0x8002772CU)=0x80301000U;
             LOAD_UWORD_PARAM(0x8030100CU)=first;
-            LOAD_UWORD_PARAM(0x80301104U)=0xA06EFF08U;
+            LOAD_UWORD_PARAM(0x80301104U)=TEST_ALPHA+0x30U+0x20000000U;
             break;
         }
         assert_nothing_changed();assert(gepdPatchesPending==1);
@@ -192,17 +242,30 @@ int main(int argc,char **argv) {
             reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);LOAD_UWORD_PARAM(c->ram+d)^=1U;assert_nothing_changed();
         }
     }
-    reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);LOAD_UWORD_PARAM(0x8004EBF8U)^=1U;assert_nothing_changed();
-    reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);LOAD_UWORD_PARAM(0x8004EC00U)^=1U;assert_nothing_changed();
-    /* Runtime identity, region, and allocation gates run before mutation. */
+    reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);LOAD_UWORD_PARAM(TEST_TABLE_LAST)^=1U;assert_nothing_changed();
+    reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);LOAD_UWORD_PARAM(TEST_TABLE_END)^=1U;assert_nothing_changed();
+    /* A decoded texture-table pointer must be aligned and inside real RDRAM. */
+    for(i=0;i<4;i++) {
+        unsigned int address=expected_contexts[0].ram+(i==3?0x2CU:0x20U),value;
+        reset_case();memcpy(gMemoryState.ROM_Image,patched_rom,original_rom_length);
+        value=i==0?0x3C060005U:i==1?0x3C068105U:i==2?0x3C068085U:LOAD_UWORD_PARAM(address)+1U;
+        GEWriteROMWord(address-ROM_DELTA,value);LOAD_UWORD_PARAM(address)=value;assert_nothing_changed();
+    }
+    /* Header selection survives region metadata changes; engine and allocation gates remain. */
     reset_case();emustatus.game_hack=GHACK_PD;assert_nothing_changed();
-    reset_case();rominfo.TV_System=1;assert_nothing_changed();
+    reset_case();rominfo.TV_System=1;assert_only_expected_patch();
     reset_case();current_rdram_size=0x400000;assert_nothing_changed();
     reset_case();gMS_RDRAM=NULL;assert_nothing_changed();gMS_RDRAM=test_rdram;
     reset_case();geResolutionInitialized=TRUE;geResolution.rommappingvalid=TRUE;assert_nothing_changed();
     for(i=0;i<3;i++) {
         reset_case();GEPDRestoreROMHacks();free(gMemoryState.ROM_Image);gAllocationLength=i==0?0:i==1?16:0x32c84;
         gMemoryState.ROM_Image=i==0?NULL:calloc(1,gAllocationLength);assert(!i||gMemoryState.ROM_Image);assert_nothing_changed();
+    }
+    /* Genuine headers with truncated source windows still cannot admit a partial patch. */
+    for(i=0;i<4;i++) {
+        unsigned int limit=i==0?0x33U:i==1?0x34U:i==2?expected_contexts[0].ram-ROM_DELTA+4U:expected_contexts[5].ram-ROM_DELTA+expected_contexts[5].words*4U-4U;
+        reset_case();GEPDRestoreROMHacks();free(gMemoryState.ROM_Image);gAllocationLength=limit;
+        gMemoryState.ROM_Image=malloc(limit);assert(gMemoryState.ROM_Image);memcpy(gMemoryState.ROM_Image,original_rom,limit);assert_nothing_changed();
     }
     printf("Texture compatibility: %u host cases passed; exact payload, atomic admission, identity, old-save RAM, idempotence, ownership restoration, cold boot, bounded mutation and cache aliases\n",cases);
     GEPDRestoreROMHacks();free(gMemoryState.ROM_Image);free(original_rom);free(original_ram);free(patched_rom);free(patched_ram);return 0;
@@ -212,6 +275,7 @@ int main(int argc,char **argv) {
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('plus',type=Path,help='User-supplied original canonical .z64; never modified')
+    ap.add_argument('--layout', choices=('old','v2'), default='old', help='Independent expected instruction layout')
     ap.add_argument('--ram',type=Path,help='Optional canonical 8 MiB private RDRAM fixture')
     ap.add_argument('--source',type=Path,required=True,help='Emulator source root containing win32/Wingui.c')
     ap.add_argument('--sanitize',action='store_true')
@@ -219,6 +283,7 @@ def main():
     source_bytes=(args.source/'win32/Wingui.c').read_bytes();src=source_bytes.decode('latin1')
     start=src.index('#define PD_frameratecal');code=src[start:src.index('void SetCodeCheckMethod',start)]
     rom=args.plus.read_bytes();assert rom[:4]==bytes.fromhex('80371240'),'Expected canonical .z64'
+    validator_delta,cycle_delta,texture_delta,table_delta=(0,0,0,0) if args.layout=='old' else (0x1f0,0x2d8,0x9f0,0x10)
     if args.ram:
         ram=args.ram.read_bytes();assert len(ram)==0x800000
     else:
@@ -230,15 +295,23 @@ def main():
         # Known scheduler windows and a single safe synthetic active thread.
         for rom_start,ram_start,length in [(0xdfd8,0xd3d8,40),(0x10c48,0x10048,24),(0x10ce0,0x100e0,16),(0x10d60,0x10160,16),(0x11258,0x10658,20)]:
             ram[ram_start:ram_start+length]=rom[rom_start:rom_start+length]
-        for address,value in [(0x27720,0),(0x27724,0xffffffff),(0x2772c,0x80300000),(0x27730,0x80300000),(0x30000c,0x80027720),(0x300104,0x806e1a50),(0x30011c,0x806e1a50),(0x4ebf8,0x002ee9db),(0x4ec00,0x002eef18)]:
+        for address,value in [(0x27720,0),(0x27724,0xffffffff),(0x2772c,0x80300000),(0x27730,0x80300000),(0x30000c,0x80027720),(0x300104,0x806e1a50),(0x30011c,0x806e1a50),(0x4ebf8+table_delta,0x002ee9db),(0x4ec00+table_delta,0x002eef18)]:
             struct.pack_into('>I',ram,address,value)
     words=[]
-    for address,old,new in PATCHES:
+    for patch_index,(address,old,new) in enumerate(PATCHES):
+        address+=validator_delta if patch_index==0 else cycle_delta if patch_index<=3 else texture_delta
+        if args.layout=='v2':old=old.replace('0c1bc93b','0c1bcbb7');new=new.replace('0c1bc93b','0c1bcbb7')
         old=bytes.fromhex(old);new=bytes.fromhex(new);assert len(old)==len(new)
         for i in range(0,len(old),4):
             words.append((address+i,int.from_bytes(old[i:i+4],'big'),int.from_bytes(new[i:i+4],'big')))
     expected='static const struct {unsigned int ram,original,patched;} expected[] = {\n'
     expected+=''.join('    {0x%08xU,0x%08xU,0x%08xU},\n'%w for w in words)+'};\n'
+    contexts=[(0x806271ec+validator_delta,36),(0x8062a500+cycle_delta,59),(0x806ee248+texture_delta,614),(0x806efed8+texture_delta,21),(0x806f0234+texture_delta,699),(0x806f0d20+texture_delta,1556)]
+    expected+='static const struct {unsigned int ram,words;} expected_contexts[] = {\n'
+    expected+=''.join('    {0x%08xU,%uU},\n'%c for c in contexts)+'};\n'
+    for name,value in [('TEST_ALPHA',0x806efed8+texture_delta),('TEST_TAIL_PC',0x806f24ec+texture_delta),('TEST_PIXELS',0x806f0234+texture_delta),('TEST_CYCLE',0x8062a500+cycle_delta),('TEST_TABLE_LAST',0x8004ebf8+table_delta),('TEST_TABLE_END',0x8004ec00+table_delta)]:
+        expected+='#define %s 0x%08xU\n'%(name,value)
+    expected_payload='b2b60b99bb3ec79c5ff7c464b02ed203f0b40cf6a1473c2a662f341534e13796' if args.layout=='old' else 'ed9eec60010ba3444e0e8712e61c31eb15ecbfc37748f61b4bce07b42b7d1aaa'
     with tempfile.TemporaryDirectory(prefix='texture-compat-test-') as d:
         d=Path(d);(d/'ram.bin').write_bytes(ram);c=d/'test.c';c.write_text(PREAMBLE+code+expected+CASES)
         exe=d/'test';flags=['-std=c99','-O1','-Wall','-Wextra','-Wno-unused-const-variable']
@@ -247,6 +320,6 @@ def main():
         run=subprocess.run([str(exe),str(args.plus.resolve()),str(d/'ram.bin'),str(d/'rom-payload.bin'),str(d/'ram-payload.bin')],capture_output=True,text=True)
         assert run.returncode==0,run.stderr
         hashes={name:hashlib.sha256((d/name).read_bytes()).hexdigest() for name in ['rom-payload.bin','ram-payload.bin']}
-        assert set(hashes.values())=={'b2b60b99bb3ec79c5ff7c464b02ed203f0b40cf6a1473c2a662f341534e13796'},'Production bytes differ from the user-confirmed correction'
-        print(json.dumps({'source_sha256':hashlib.sha256(source_bytes).hexdigest(),'rom_sha256':hashlib.sha256(rom).hexdigest(),'payload_sha256':hashes,'sanitizers':args.sanitize,'sanitizer_options':os.environ.get('ASAN_OPTIONS','default') if args.sanitize else None,'result':run.stdout.strip(),'limits':'Production host C runs against bounded buffers; no guest gameplay or emulator scheduler replay. No game data is distributed.'},indent=2))
+        assert set(hashes.values())=={expected_payload},'Production bytes differ from the user-confirmed correction'
+        print(json.dumps({'layout':args.layout,'source_sha256':hashlib.sha256(source_bytes).hexdigest(),'rom_sha256':hashlib.sha256(rom).hexdigest(),'payload_sha256':hashes,'sanitizers':args.sanitize,'sanitizer_options':os.environ.get('ASAN_OPTIONS','default') if args.sanitize else None,'result':run.stdout.strip(),'limits':'Production host C runs against bounded buffers; no guest gameplay or emulator scheduler replay. No game data is distributed.'},indent=2))
 if __name__=='__main__':main()

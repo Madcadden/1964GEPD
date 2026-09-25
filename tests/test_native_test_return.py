@@ -212,11 +212,11 @@ def main():
         # A user map sentinel proves the code repair does not rewrite editor data.
         ram[0x400000:0x43e888]=bytes((i*17+3)&255 for i in range(0x3e888))
     # Isolate this title-function regression suite from the separately tested
-    # texture correction. A changed texture-table identity closes that gate;
+    # texture correction. A retail title closes that header-selected gate;
     # all title code and context remain the supplied ROM's exact bytes.
     title_rom=bytearray(rom)
     isolate_textures='GEReconcileEditorTextures' in code
-    if isolate_textures:title_rom[0x21990]^=1
+    if isolate_textures:title_rom[0x20:0x34]=b'GOLDENEYE           '
     with tempfile.TemporaryDirectory(prefix='native-return-test-') as d:
         d=Path(d);(d/'rom.bin').write_bytes(title_rom);(d/'ram.bin').write_bytes(ram);c=d/'test.c';c.write_text(PREAMBLE+code+CASES)
         exe=d/'test';flags=['-std=c99','-O1','-Wall','-Wextra','-Wno-unused-const-variable']
