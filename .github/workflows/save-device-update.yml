@@ -1,0 +1,101 @@
+name: Save-device compatibility
+on:
+  push:
+    branches: ['fix/plus-auto-save-device', 'automatic-mod-compatibility']
+    paths:
+      - ge_save_profile.h
+      - tools/integrate_save_profile.py
+      - tests/test_save_profile.py
+      - tools/publish_save_update.py
+      - .github/workflows/save-device-update.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: save-device-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Integrate only the reviewed options change
+        run: python3 tools/integrate_save_profile.py
+      - name: Test the production save detector and options policy
+        run: python3 tests/test_save_profile.py > save-tests.json
+      - name: Retain integrated source
+        id: source
+        run: |
+          if ! git diff --quiet -- 1964ini.c; then
+            test "$GITHUB_REF_NAME" = 'fix/plus-auto-save-device'
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add 1964ini.c
+            git commit -m 'Integrate automatic Plus EEPROM settings'
+            git push origin HEAD:fix/plus-auto-save-device
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: save-device-tests-${{ github.run_id }}
+          path: save-tests.json
+          retention-days: 14
+  build:
+    needs: prepare
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - name: Build Release Win32
+        shell: pwsh
+        run: ./tools/build_emulator.ps1 -SourceRoot . -OutputDirectory ./candidate
+      - name: Include exact corresponding source
+        shell: pwsh
+        run: |
+          git archive --format=zip --output=candidate/source.zip HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Source archive failed' }
+          git rev-parse HEAD | Set-Content candidate/source-commit.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: save-device-build-${{ github.run_id }}
+          path: candidate/
+          retention-days: 14
+          if-no-files-found: error
+  publish:
+    if: github.ref == 'refs/heads/automatic-mod-compatibility'
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: save-device-build-${{ github.run_id }}
+          path: candidate
+      - name: Replace current release and verify public hashes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/publish_save_update.py
+      - name: Retain rollback and verification files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: save-device-publication-${{ github.run_id }}
+          path: release-out/
+          retention-days: 30
+          if-no-files-found: warn
