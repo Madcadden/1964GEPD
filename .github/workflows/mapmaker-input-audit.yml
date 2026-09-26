@@ -1,0 +1,36 @@
+name: Map Maker input audit
+on:
+  workflow_dispatch:
+  push:
+    branches: ['audit/mapmaker-inputs']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: Madcadden/mouse-injector
+          ref: bea57b6986cc3519deded0a2d2a3a0c7a888f230
+          persist-credentials: false
+      - name: Export source snapshot
+        run: |
+          mkdir -p audit-out
+          git archive --format=zip --output=audit-out/injector-source.zip HEAD
+          git rev-parse HEAD > audit-out/commit.txt
+      - uses: actions/checkout@v4
+        with:
+          repository: Joshua-1248/GoldenEye-007-Plus
+          ref: c5205e7b06357f00cce1f429a1dbe123f3b6f0b0
+          path: plus-reference
+          persist-credentials: false
+      - name: Export public reference source (no ROM)
+        run: git -C plus-reference archive --format=zip --output=../audit-out/plus-reference-source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mapmaker-audit-${{ github.sha }}
+          path: audit-out/
+          retention-days: 14
+          if-no-files-found: error
