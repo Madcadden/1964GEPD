@@ -17,15 +17,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Apply candidate video integration
+        shell: pwsh
+        run: |
+          git apply --ignore-space-change --ignore-whitespace tools/goldeneye-depth-compat.patch
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate patch did not match source' }
       - name: Build Release Win32 and record hashes
         shell: pwsh
         run: ./tools/build_emulator.ps1 -SourceRoot . -OutputDirectory ./candidate
-      - name: Include corresponding source
+      - name: Include corresponding source and applied integration
         shell: pwsh
         run: |
           git archive --format=zip --output=candidate/source.zip HEAD
           if ($LASTEXITCODE -ne 0) { throw 'Source archive failed' }
           git rev-parse HEAD | Set-Content candidate/source-commit.txt
+          Copy-Item win32/Dll_Video.c candidate/Dll_Video.compiled.c
       - name: Collect reference graphics plugin for compatibility checks
         shell: pwsh
         run: |
@@ -36,6 +42,22 @@ jobs:
           New-Item -ItemType Directory -Force candidate/reference | Out-Null
           Get-ChildItem reference -Recurse -File | Where-Object { $_.Name -match '^(GLN64_2020|GLideN64)' -or $_.Name -match '(?i)(license|copying|bundle_readme)' } | Copy-Item -Destination candidate/reference
           Get-ChildItem candidate/reference -File | Get-FileHash | Format-Table -AutoSize | Out-String -Width 240 | Set-Content candidate/reference-hashes.txt
+      - name: Native adapter regression tests against reference DLL
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          @"
+          @echo off
+          call "$vs\Common7\Tools\VsDevCmd.bat" -no_logo -arch=x86 -host_arch=x64
+          if errorlevel 1 exit /b 1
+          cl /nologo /O2 /MT /Oy /Gr /GS- /Zp16 tools\test_depth_adapter.c /Fe:candidate\test-depth-adapter.exe /Fo:candidate\test-depth-adapter.obj
+          "@ | Set-Content build-tests.cmd -Encoding ascii
+          & cmd /c build-tests.cmd
+          if ($LASTEXITCODE -ne 0) { throw 'Native test compilation failed' }
+          & ./candidate/test-depth-adapter.exe (Resolve-Path candidate/reference/GLN64_2020.dll).Path | Tee-Object -FilePath candidate/native-depth-tests.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Native depth tests failed' }
       - name: Upload candidate and build verification
         uses: actions/upload-artifact@v4
         with:
