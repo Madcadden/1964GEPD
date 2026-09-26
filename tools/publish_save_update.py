@@ -1,7 +1,29 @@
 """Publish the save-device build to the existing release; hashes-only text change."""
 from pathlib import Path
-import io, json, os, subprocess, urllib.request, zipfile
+import io, json, os, subprocess, time, urllib.request, zipfile
 from publish_v022 import api, sha, fetch_public, require, REPO, TAG, PACKAGE, SOURCE, RELEASE_ID
+
+
+def verify_public_asset(asset, expected):
+    """A reused release filename can temporarily serve its previous cached ZIP."""
+    url = asset['browser_download_url']
+    require(url.startswith('https://github.com/' + REPO + '/releases/download/'), 'Unexpected public URL')
+    observed = []
+    for attempt in range(6):
+        uncached = url + '?asset_id=' + str(asset['id']) + '&verification=' + os.environ['GITHUB_RUN_ID'] + '-' + str(attempt)
+        req = urllib.request.Request(uncached, headers={'Cache-Control': 'no-cache', 'User-Agent': '1964GEPD-release-verification'})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                digest = sha(response.read())
+            observed.append(digest)
+            if digest == expected:
+                return
+        except Exception as error:
+            observed.append(type(error).__name__)
+        if attempt < 5:
+            time.sleep(2 ** attempt)
+    raise RuntimeError('Public download mismatch for ' + asset['name'] + ': ' + repr(observed))
+
 
 require(os.environ.get('GITHUB_REPOSITORY') == REPO and
         os.environ.get('GITHUB_REF_NAME') == 'automatic-mod-compatibility', 'Wrong publication target')
@@ -67,9 +89,10 @@ try:
     final=api(f'/repos/{REPO}/releases/{RELEASE_ID}')
     require(final['body']==body and final['tag_name']==TAG and final['name']==release['name'],'Final metadata mismatch')
     for name,new in renamed:
-        # Download the public bytes, not just the server's digest metadata.
         asset=next(a for a in final['assets'] if a['id']==new['id'])
-        require(sha(fetch_public(asset['browser_download_url']))==sha((out/name).read_bytes()),'Public download mismatch')
+        expected=sha((out/name).read_bytes())
+        require(asset['digest']=='sha256:'+expected,'Final server digest mismatch')
+        verify_public_asset(asset,expected)
 except Exception:
     for name,new in reversed(renamed):
         api(f'/repos/{REPO}/releases/assets/{new["id"]}','PATCH',{'name':f'failed-{run}-{name}'})
@@ -78,6 +101,12 @@ except Exception:
     api(f'/repos/{REPO}/releases/{RELEASE_ID}','PATCH',{'body':release['body']})
     raise
 for name,old_asset in previous:api(f'/repos/{REPO}/releases/assets/{old_asset["id"]}','DELETE')
+# Retired artifacts from our immediately preceding rolled-back attempt remain
+# in the private workflow backup, not as confusing extra public downloads.
+for name in (PACKAGE,SOURCE,'SHA256SUMS.txt'):
+    retired=assets.get('failed-36278834177-'+name)
+    if retired and retired['id'] in (591650786,591650793,591650803):
+        api(f'/repos/{REPO}/releases/assets/{retired["id"]}','DELETE')
 report={'release':release['html_url'],'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'zip_sha256':package_hash,'exe_sha256':exe_hash,'injector_sha256':injector_hash,'source_sha256':source_hash,'description_hashes_only':True,'public_downloads_verified':True}
 (out/'publication.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report,indent=2))
