@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include "romlist.h"
 #include "win32/registry.h"
+#include "memory.h"
+#include "ge_save_profile.h"
 
 uint32		ConvertHexCharToInt(char c);
 uint32		ConvertHexStringToInt(const char *str, int nchars);
@@ -164,6 +166,18 @@ void GenerateCurrentRomOptions(void)
 	{
 		currentromoptions.Save_Type = SRAM_SAVETYPE;
 	}
+
+	/* BEGIN VERIFIED PLUS SAVE POLICY
+	 * Runtime-only: correct even an old explicit 4Kb/SRAM ROM setting without
+	 * rewriting the INI or converting/deleting any save. Keep Controller Pak
+	 * available alongside EEPROM; the prior SRAM driver override stays above.
+	 */
+	if(GEPlusHas16KSaveDriver(gMemoryState.ROM_Image, gAllocationLength))
+	{
+		currentromoptions.Save_Type = ANYUSED_SAVETYPE;
+		currentromoptions.Eeprom_size = EEPROMSIZE_16KB;
+	}
+	/* END VERIFIED PLUS SAVE POLICY */
 
 	if(RomListSelectedEntry()->pinientry->countrycode == 0x45) // if USA ROM
 	{
