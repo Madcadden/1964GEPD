@@ -22,6 +22,12 @@ jobs:
       - name: Build Release Win32 and record hashes
         shell: pwsh
         run: ./tools/build_emulator.ps1 -SourceRoot . -OutputDirectory ./candidate
+      - name: Include corresponding source
+        shell: pwsh
+        run: |
+          git archive --format=zip --output=candidate/source.zip HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Source archive failed' }
+          git rev-parse HEAD | Set-Content candidate/source-commit.txt
       - name: Upload candidate and build verification
         uses: actions/upload-artifact@v4
         with:
