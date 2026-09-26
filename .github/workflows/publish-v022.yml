@@ -1,0 +1,71 @@
+name: Maintain existing v0.2.2 release
+
+on:
+  push:
+    branches:
+      - codex/auto-mod-goldeneye-depth-universal
+      - automatic-mod-compatibility
+    paths:
+      - .github/workflows/publish-v022.yml
+      - tools/publish_v022.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintain-existing-v022
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'Madcadden/1964GEPD' && github.ref == 'refs/heads/codex/auto-mod-goldeneye-depth-universal'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/auto-mod-goldeneye-depth-universal
+      - uses: actions/download-artifact@v4
+        with:
+          repository: Madcadden/1964GEPD
+          run-id: 36265443586
+          name: 1964-win32-candidate-c167ce6773773999a91ea6e6b8db241799cbe2f9
+          path: approved
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Integrate matching source
+        run: python3 tools/publish_v022.py prepare
+
+  publish:
+    if: github.repository == 'Madcadden/1964GEPD' && github.ref == 'refs/heads/automatic-mod-compatibility'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          repository: Madcadden/1964GEPD
+          run-id: 36265443586
+          name: 1964-win32-candidate-c167ce6773773999a91ea6e6b8db241799cbe2f9
+          path: approved
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Replace current assets and refresh checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/publish_v022.py publish
+      - name: Retain publication records and rollback files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v022-publication-${{ github.run_id }}
+          path: release-out/
+          if-no-files-found: warn
+          retention-days: 30
