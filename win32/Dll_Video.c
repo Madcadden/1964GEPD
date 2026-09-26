@@ -108,7 +108,7 @@ static BOOL VIDEO_GoldenEyeMicrocode(unsigned int accessor)
     if(accessor > gAllocationLength || gAllocationLength - accessor < 24U)
         return FALSE;
     for(index = 0; index < 24U; index += 12U)
-        if((VIDEO_ROMWord(accessor + index) & 0xFFFF0000U) != 0x3C0200000U ||
+        if((VIDEO_ROMWord(accessor + index) & 0xFFFF0000U) != 0x3C020000U ||
             VIDEO_ROMWord(accessor + index + 4U) != 0x03E00008U ||
             (VIDEO_ROMWord(accessor + index + 8U) & 0xFFFF0000U) != 0x24420000U)
             return FALSE;
