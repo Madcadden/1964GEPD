@@ -18,6 +18,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Apply candidate video integration
+        if: hashFiles('tools/goldeneye-depth-compat.patch') != ''
         shell: pwsh
         run: |
           git apply --ignore-space-change --ignore-whitespace tools/goldeneye-depth-compat.patch
