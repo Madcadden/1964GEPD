@@ -1,0 +1,69 @@
+--- a/win32/Dll_Video.c
++++ b/win32/Dll_Video.c
+@@ -175,6 +175,8 @@
+ static BOOL videoGoldenEyeProfileRequested = FALSE;
+ static char videoPluginName[100];
+ 
++#include "GoldenEyeDepthCompat.h"
++
+ static BOOL VIDEO_IsGLideN64Name(const char *name)
+ {
+     char suffix;
+@@ -232,7 +234,7 @@
+     file = fopen(path, "w");
+     if(file == NULL)
+         return;
+-    fprintf(file, "1964GEPD GE-depth-auto-20260926\n"
++    fprintf(file, "1964GEPD GE-depth-alias-candidate-20260926\n"
+         "Plugin: %.99s\nGLideN64 recognized: %s\nWord-swapped header: %s\n"
+         "Original ROM title: %.20s\nGraphics-only title: %.20s\n"
+         "GoldenEye graphics profile requested: %s\nStage: %s\n"
+@@ -242,6 +244,8 @@
+         videoHeaderIsWordSwapped ? "yes" : "no", originalTitle, graphicsTitle,
+         videoGoldenEyeProfileRequested ? "yes" : "no", phase,
+         videoGoldenEyeProfileRequested ? "hack_clearAloneDepthBuffer" : "unchanged");
++    fprintf(file, "Depth alias adapter: %s\nOverlapping framebuffer matches rejected: %lu\n",
++        videoDepthAdapterStatus, videoDepthAliasRejects);
+     fclose(file);
+ }
+ /* END GE GRAPHICS HEADER */
+@@ -286,6 +290,7 @@
+ 	/* Release the video plug-in if it has already been loaded */
+ 	if(hinstLibVideo != NULL)
+ 	{
++		VIDEO_RestoreDepthCompatibility();
+ 		FreeLibrary(hinstLibVideo);
+ 	}
+ 
+@@ -311,6 +316,7 @@
+ 			if(Plugin_Info.Type == PLUGIN_TYPE_GFX) /* Check if this is a video plugin */
+ 			{
+ 				videoIsGLideN64 = VIDEO_IsGLideN64Name(Plugin_Info.Name);
++				if(videoIsGLideN64) VIDEO_InstallDepthCompatibility(hinstLibVideo);
+ 				strncpy(videoPluginName, Plugin_Info.Name, sizeof(videoPluginName) - 1);
+ 				videoPluginName[sizeof(videoPluginName) - 1] = '\0';
+ 				_VIDEO_DllClose = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "CloseDLL");
+@@ -446,6 +452,7 @@
+ 			RECT Rect;
+ 			GetWindowRect(gui.hwnd1964main, &Rect);
+ 			VIDEO_RefreshGraphicsHeader();
++			videoDepthAliasRejects = 0;
+ 			VIDEO_LogGraphicsProfile("RomOpen starting");
+ 			_VIDEO_RomOpen();
+ 			VIDEO_LogGraphicsProfile("RomOpen returned");
+@@ -471,6 +478,7 @@
+ 		__try
+ 		{
+ 			_VIDEO_RomClosed();
++			VIDEO_LogGraphicsProfile("RomClosed");
+ 		}
+ 
+ 		__except(NULL, EXCEPTION_EXECUTE_HANDLER)
+@@ -582,6 +590,7 @@
+ 	videoGoldenEyeProfileRequested = FALSE;
+ 	videoPluginName[0] = '\0';
+ 
++	VIDEO_RestoreDepthCompatibility();
+ 	if(hinstLibVideo) FreeLibrary(hinstLibVideo);
+ 
+ 	hinstLibVideo = NULL;
