@@ -41,12 +41,11 @@ require(release['id']==RELEASE_ID and not release['immutable'], 'Unexpected rele
 assets={a['name']:a for a in release['assets']}
 old=fetch_public(assets[PACKAGE]['browser_download_url'])
 old_hash=sha(old)
-require(old_hash=='dd8615e1b5fc9c28c68f27938b3d422511246dd1fa47f50224484a709bdb480e', 'Release changed; stop')
+require(old_hash=='ce6e4493e95ad39e8fb7424388153be6f3a56ae26dc10ba92a215edb79f51eb1', 'Release changed; stop')
 with zipfile.ZipFile(io.BytesIO(old)) as z:
     files={n:z.read(n) for n in z.namelist() if not n.endswith('/')}
 old_exe_hash=sha(files['1964.exe'])
-require(old_exe_hash=='98273a8b7547dcbace27b7d4e70b5dc420f1b026c78db7bbda20d193212846cf','Unexpected previous executable')
-require(exe_hash!=old_exe_hash,'Executable unchanged')
+require(old_exe_hash=='69fe0f2a07240983b558a026910807f1cd3d3a115866ef36acb7087180321090','Unexpected previous executable')
 injector_hash=sha(files['plugin/Mouse_Injector.dll'])
 require(injector_hash=='870509bb4553b16d679edbae1349948943476bee6ee2c8e5d712a945b4c584cd','Injector changed')
 backup=out/'previous';backup.mkdir(exist_ok=True)
@@ -55,11 +54,21 @@ backup=out/'previous';backup.mkdir(exist_ok=True)
 for name in ('SHA256SUMS.txt',SOURCE):
     if name in assets:(backup/name).write_bytes(fetch_public(assets[name]['browser_download_url']))
 files['1964.exe']=exe
+files['emulator-build-manifest.json']=(root/'candidate/build-manifest.json').read_bytes()
+commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+info=files['BUILD-INFO.txt'].decode('utf-8-sig').splitlines()
+info=[('Emulator commit: '+commit) if line.startswith('Emulator commit: ') else
+      ('Emulator build: https://github.com/'+REPO+'/actions/runs/'+os.environ['GITHUB_RUN_ID']) if line.startswith('Emulator build: ') else line for line in info]
+files['BUILD-INFO.txt']=('\n'.join(info)+'\n').encode('utf-8')
 files['SHA256SUMS.txt']=(exe_hash+'  1964.exe\n'+injector_hash+'  plugin/Mouse_Injector.dll\n').encode('ascii')
 with zipfile.ZipFile(out/PACKAGE,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
     for name,raw in sorted(files.items()):
         info=zipfile.ZipInfo(name,(2026,9,27,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16
         z.writestr(info,raw)
+with zipfile.ZipFile(out/PACKAGE) as z:
+    packaged_manifest=json.loads(z.read('emulator-build-manifest.json').decode('utf-8-sig'))
+    require(packaged_manifest['output_sha256'].lower()==sha(z.read('1964.exe')) and
+            packaged_manifest['output_bytes']==len(z.read('1964.exe')), 'Packaged build manifest mismatch')
 subprocess.run(['git','archive','--format=zip','--output='+str(out/SOURCE),'HEAD'],check=True)
 package_hash=sha((out/PACKAGE).read_bytes());source_hash=sha((out/SOURCE).read_bytes())
 (out/'SHA256SUMS.txt').write_text(package_hash+'  '+PACKAGE+'\n'+exe_hash+'  1964.exe\n'+injector_hash+'  plugin/Mouse_Injector.dll\n'+source_hash+'  '+SOURCE+'\n',encoding='ascii')
@@ -101,12 +110,6 @@ except Exception:
     api(f'/repos/{REPO}/releases/{RELEASE_ID}','PATCH',{'body':release['body']})
     raise
 for name,old_asset in previous:api(f'/repos/{REPO}/releases/assets/{old_asset["id"]}','DELETE')
-# Retired artifacts from our immediately preceding rolled-back attempt remain
-# in the private workflow backup, not as confusing extra public downloads.
-for name in (PACKAGE,SOURCE,'SHA256SUMS.txt'):
-    retired=assets.get('failed-36278834177-'+name)
-    if retired and retired['id'] in (591650786,591650793,591650803):
-        api(f'/repos/{REPO}/releases/assets/{retired["id"]}','DELETE')
-report={'release':release['html_url'],'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'zip_sha256':package_hash,'exe_sha256':exe_hash,'injector_sha256':injector_hash,'source_sha256':source_hash,'description_hashes_only':True,'public_downloads_verified':True}
+report={'release':release['html_url'],'source_commit':commit,'zip_sha256':package_hash,'exe_sha256':exe_hash,'injector_sha256':injector_hash,'source_sha256':source_hash,'description_hashes_only':True,'public_downloads_verified':True,'packaged_build_manifest_verified':True}
 (out/'publication.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report,indent=2))
