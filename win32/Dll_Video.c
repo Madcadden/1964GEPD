@@ -22,6 +22,7 @@
  * authors: email: schibo@emulation64.com, rice1964@yahoo.com
  */
 #include <windows.h>
+#include <stdio.h>
 #include "../globals.h"
 #include "../memory.h"
 #include "registry.h"
@@ -171,11 +172,19 @@ static BOOL GEPDUseGoldenEyeGraphicsProfile(void)
 static unsigned char videoGraphicsHeader[0x40];
 static BOOL videoIsGLideN64 = FALSE;
 static BOOL videoHeaderIsWordSwapped = FALSE;
+static BOOL videoGoldenEyeProfileRequested = FALSE;
+static char videoPluginName[100];
 
 static BOOL VIDEO_IsGLideN64Name(const char *name)
 {
-	return _strnicmp(name, "GLideN64", 8) == 0 &&
-		(name[8] == '\0' || name[8] == ' ');
+    char suffix;
+    if(name == NULL || _strnicmp(name, "GLideN64", 8) != 0)
+        return FALSE;
+    suffix = name[8];
+    /* Forks may use a date/version after a separator, not just a space.
+     * Do not confuse the separate Glide64 plugin with GLideN64. */
+    return suffix == '\0' || suffix == ' ' || suffix == '\t' ||
+        suffix == '_' || suffix == '-' || suffix == '(' || suffix == '[';
 }
 
 static void VIDEO_RefreshGraphicsHeader(void)
@@ -183,9 +192,57 @@ static void VIDEO_RefreshGraphicsHeader(void)
 	static const char retailTitle[21] = "GOLDENEYE           ";
 	unsigned int index;
 	memcpy(videoGraphicsHeader, HeaderDllPass, sizeof(videoGraphicsHeader));
-	if(videoIsGLideN64 && videoHeaderIsWordSwapped && GEPDUseGoldenEyeGraphicsProfile())
+	videoGoldenEyeProfileRequested = videoIsGLideN64 && videoHeaderIsWordSwapped &&
+		GEPDUseGoldenEyeGraphicsProfile();
+	if(videoGoldenEyeProfileRequested)
 		for(index = 0; index < 20; index++)
 			videoGraphicsHeader[(0x20U + index) ^ 3U] = retailTitle[index];
+}
+/* One bounded diagnostic file beside the executable, never per-frame I/O.
+ * Reports the header requested from the plugin, NOT an unobserved internal
+ * GLideN64 flag or an assertion that a level has been visually tested. */
+static void VIDEO_LogGraphicsProfile(const char *phase)
+{
+    static const char logName[] = "GEPD-Graphics.log";
+    char path[MAX_PATH], originalTitle[21], graphicsTitle[21];
+    char *separator;
+    DWORD length;
+    unsigned int index, offset;
+    FILE *file;
+    length = GetModuleFileNameA(NULL, path, sizeof(path));
+    if(length == 0 || length >= sizeof(path))
+        return;
+    separator = strrchr(path, '\\');
+    if(separator == NULL || (size_t)(separator + 1 - path) + sizeof(logName) > sizeof(path))
+        return;
+    strcpy(separator + 1, logName);
+    for(index = 0; index < 20; index++)
+    {
+        offset = 0x20U + index;
+        if(videoHeaderIsWordSwapped)
+            offset ^= 3U;
+        originalTitle[index] = (char)HeaderDllPass[offset];
+        graphicsTitle[index] = (char)videoGraphicsHeader[offset];
+        if((unsigned char)originalTitle[index] < 32U || (unsigned char)originalTitle[index] > 126U)
+            originalTitle[index] = '.';
+        if((unsigned char)graphicsTitle[index] < 32U || (unsigned char)graphicsTitle[index] > 126U)
+            graphicsTitle[index] = '.';
+    }
+    originalTitle[20] = graphicsTitle[20] = '\0';
+    file = fopen(path, "w");
+    if(file == NULL)
+        return;
+    fprintf(file, "1964GEPD GE-depth-auto-20260926\n"
+        "Plugin: %.99s\nGLideN64 recognized: %s\nWord-swapped header: %s\n"
+        "Original ROM title: %.20s\nGraphics-only title: %.20s\n"
+        "GoldenEye graphics profile requested: %s\nStage: %s\n"
+        "Requested workaround: %s\n"
+        "This records profile delivery, not visual verification of the renderer.\n",
+        videoPluginName, videoIsGLideN64 ? "yes" : "no",
+        videoHeaderIsWordSwapped ? "yes" : "no", originalTitle, graphicsTitle,
+        videoGoldenEyeProfileRequested ? "yes" : "no", phase,
+        videoGoldenEyeProfileRequested ? "hack_clearAloneDepthBuffer" : "unchanged");
+    fclose(file);
 }
 /* END GE GRAPHICS HEADER */
 
@@ -224,6 +281,8 @@ BOOL LoadVideoPlugin(char *libname)
 {
 	videoIsGLideN64 = FALSE;
 	videoHeaderIsWordSwapped = FALSE;
+	videoGoldenEyeProfileRequested = FALSE;
+	videoPluginName[0] = '\0';
 	/* Release the video plug-in if it has already been loaded */
 	if(hinstLibVideo != NULL)
 	{
@@ -252,6 +311,8 @@ BOOL LoadVideoPlugin(char *libname)
 			if(Plugin_Info.Type == PLUGIN_TYPE_GFX) /* Check if this is a video plugin */
 			{
 				videoIsGLideN64 = VIDEO_IsGLideN64Name(Plugin_Info.Name);
+				strncpy(videoPluginName, Plugin_Info.Name, sizeof(videoPluginName) - 1);
+				videoPluginName[sizeof(videoPluginName) - 1] = '\0';
 				_VIDEO_DllClose = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "CloseDLL");
 				_VIDEO_ExtraChangeResolution = (void(__cdecl *) (HWND, long, HWND)) GetProcAddress
 					(
@@ -384,14 +445,16 @@ void VIDEO_RomOpen(void)
 		{
 			RECT Rect;
 			GetWindowRect(gui.hwnd1964main, &Rect);
-			if(videoIsGLideN64)
-				VIDEO_RefreshGraphicsHeader();
+			VIDEO_RefreshGraphicsHeader();
+			VIDEO_LogGraphicsProfile("RomOpen starting");
 			_VIDEO_RomOpen();
+			VIDEO_LogGraphicsProfile("RomOpen returned");
 			GetPluginsResizeRequest(&Rect);
 		}
 
 		__except(NULL, EXCEPTION_EXECUTE_HANDLER)
 		{
+			VIDEO_LogGraphicsProfile("RomOpen failed");
 			DisplayError("Video RomOpen Failed.");
 		}
 	}
@@ -481,7 +544,6 @@ void VIDEO_ChangeWindow(int window)
 		EnableWindow((HWND)gui.hMenu1964main, TRUE);
 		ShowWindow(gui.hToolBar, SW_SHOW);
 		ShowWindow(gui.hStatusBar, SW_SHOW);
-		ShowWindow((HWND)gui.hMenu1964main, TRUE);
 		HideCursor(FALSE);
 		DockStatusBar();
 	}
@@ -516,6 +578,8 @@ void CloseVideoPlugin(void)
 	VIDEO_DllClose();
 	videoIsGLideN64 = FALSE;
 	videoHeaderIsWordSwapped = FALSE;
+	videoGoldenEyeProfileRequested = FALSE;
+	videoPluginName[0] = '\0';
 
 	if(hinstLibVideo) FreeLibrary(hinstLibVideo);
 
