@@ -1,7 +1,25 @@
 """Publish the save-device build to the existing release; hashes-only text change."""
 from pathlib import Path
-import io, json, os, subprocess, urllib.request, zipfile
+import io, json, os, subprocess, time, urllib.request, zipfile
 from publish_v022 import api, sha, fetch_public, require, REPO, TAG, PACKAGE, SOURCE, RELEASE_ID
+
+
+def download_verified(asset, expected):
+    """A renamed asset can temporarily inherit the prior URL's cached redirect."""
+    require(asset.get('digest') == 'sha256:' + expected, 'Asset digest mismatch')
+    last = None
+    for attempt in range(5):
+        url = asset['browser_download_url'] + '?asset=' + str(asset['id']) + '&verify=' + os.environ['GITHUB_RUN_ID'] + '-' + str(attempt)
+        try:
+            raw = fetch_public(url)
+            last = sha(raw)
+            if last == expected:
+                return raw
+        except (OSError, TimeoutError) as error:
+            last = str(error)
+        time.sleep(1 + attempt)
+    raise RuntimeError('Public download verification failed for ' + asset['name'] + ': ' + str(last))
+
 
 require(os.environ.get('GITHUB_REPOSITORY') == REPO and
         os.environ.get('GITHUB_REF_NAME') == 'automatic-mod-compatibility', 'Wrong publication target')
@@ -17,7 +35,7 @@ for name, expected in manifest['sources_sha256'].items():
 release=api(f'/repos/{REPO}/releases/tags/{TAG}')
 require(release['id']==RELEASE_ID and not release['immutable'], 'Unexpected release')
 assets={a['name']:a for a in release['assets']}
-old=fetch_public(assets[PACKAGE]['browser_download_url'])
+old=download_verified(assets[PACKAGE], 'dd8615e1b5fc9c28c68f27938b3d422511246dd1fa47f50224484a709bdb480e')
 old_hash=sha(old)
 require(old_hash=='dd8615e1b5fc9c28c68f27938b3d422511246dd1fa47f50224484a709bdb480e', 'Release changed; stop')
 with zipfile.ZipFile(io.BytesIO(old)) as z:
@@ -31,7 +49,8 @@ backup=out/'previous';backup.mkdir(exist_ok=True)
 (backup/PACKAGE).write_bytes(old)
 (backup/'release.json').write_text(json.dumps(release,indent=2))
 for name in ('SHA256SUMS.txt',SOURCE):
-    if name in assets:(backup/name).write_bytes(fetch_public(assets[name]['browser_download_url']))
+    if name in assets:
+        (backup/name).write_bytes(download_verified(assets[name], assets[name]['digest'].removeprefix('sha256:')))
 files['1964.exe']=exe
 files['SHA256SUMS.txt']=(exe_hash+'  1964.exe\n'+injector_hash+'  plugin/Mouse_Injector.dll\n').encode('ascii')
 with zipfile.ZipFile(out/PACKAGE,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
@@ -67,9 +86,9 @@ try:
     final=api(f'/repos/{REPO}/releases/{RELEASE_ID}')
     require(final['body']==body and final['tag_name']==TAG and final['name']==release['name'],'Final metadata mismatch')
     for name,new in renamed:
-        # Download the public bytes, not just the server's digest metadata.
+        # Download the actual public bytes as well as checking server metadata.
         asset=next(a for a in final['assets'] if a['id']==new['id'])
-        require(sha(fetch_public(asset['browser_download_url']))==sha((out/name).read_bytes()),'Public download mismatch')
+        download_verified(asset, sha((out/name).read_bytes()))
 except Exception:
     for name,new in reversed(renamed):
         api(f'/repos/{REPO}/releases/assets/{new["id"]}','PATCH',{'name':f'failed-{run}-{name}'})
@@ -78,6 +97,10 @@ except Exception:
     api(f'/repos/{REPO}/releases/{RELEASE_ID}','PATCH',{'body':release['body']})
     raise
 for name,old_asset in previous:api(f'/repos/{REPO}/releases/assets/{old_asset["id"]}','DELETE')
+# Remove only the temporary artifacts left by this update's prior rolled-back run.
+for name in (PACKAGE, SOURCE, 'SHA256SUMS.txt'):
+    stale = assets.get('failed-36278834177-' + name)
+    if stale:api(f'/repos/{REPO}/releases/assets/{stale["id"]}', 'DELETE')
 report={'release':release['html_url'],'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'zip_sha256':package_hash,'exe_sha256':exe_hash,'injector_sha256':injector_hash,'source_sha256':source_hash,'description_hashes_only':True,'public_downloads_verified':True}
 (out/'publication.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report,indent=2))
