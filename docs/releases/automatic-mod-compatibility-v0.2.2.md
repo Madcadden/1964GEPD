@@ -74,9 +74,7 @@ The download has been updated in place; the version remains v0.2.2.
 
 **SHA-256**
 
-- ZIP: `e1c5f36d70cd4246b957ad5d288407489c7c58c568480967ea71873421177c0a`
-- `1964.exe`: `5d8263ffdc0f52d4a05a240e66cc0083e43165b68df75663017bc85eb416c2ea`
-- `plugin/Mouse_Injector.dll`: `33a3a9d2738fd7510dee31f5c3f4fa72bc6e1a9a49710aaf98570a8f48301183`
+[Current file checksums](https://github.com/Madcadden/1964GEPD/releases/download/automatic-mod-compatibility-v0.2.2/SHA256SUMS.txt)
 
-[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/be617351fed4b51c901d698f25eb43f5175121d7) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/01d017583e35d9b865dc2ac1c4480a363479fa68)
+[Source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Emulator build source](https://github.com/Madcadden/1964GEPD/tree/automatic-mod-compatibility) · [Updated injector source](https://github.com/Madcadden/mouse-injector/tree/01d017583e35d9b865dc2ac1c4480a363479fa68)
 

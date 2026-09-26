@@ -22,6 +22,7 @@
  * authors: email: schibo@emulation64.com, rice1964@yahoo.com
  */
 #include <windows.h>
+#include <stdio.h>
 #include "../globals.h"
 #include "../memory.h"
 #include "registry.h"
@@ -40,37 +41,29 @@ GFX_INFO	Gfx_Info;
  * Keep this plugin-only copy alive until CloseDLL; the real header and all
  * other plugins retain the mod's identity. */
 /* Match the graphics engine, not a mod title, ROM checksum or gameplay
- * patch pattern. GoldenEye's boot accessors locate compressed RSP code.
- * Only its first 4304 bytes are inflated; ROM and emulated RAM stay intact. */
+ * patch pattern. Boot accessors provide a fast path, then the graphics code
+ * itself is found in compressed or raw form. ROM and RAM stay intact. */
 static unsigned int VIDEO_ROMWord(unsigned int offset)
 {
     return *((unsigned int *)(gMemoryState.ROM_Image + offset));
 }
 
-static BOOL VIDEO_GoldenEyeMicrocode(unsigned int accessor)
+/* Verify the same F3DGOLDEN graphics code independently of the loader.
+ * A ROM title/CRC is deliberately not used: e.g. GoldenEye X uses PD's
+ * engine and must NOT inherit GoldenEye's depth-buffer correction. */
+static BOOL VIDEO_GoldenEyeCompressedBlock(unsigned int start, unsigned int end)
 {
-    unsigned int index, start, end, position, count;
+    unsigned int index, position, count;
     unsigned char input[2048], prefix[0x10D0];
     z_stream stream;
     int result;
     BOOL match = FALSE;
-    if(accessor > gAllocationLength || gAllocationLength - accessor < 24U)
-        return FALSE;
-    for(index = 0; index < 24U; index += 12U)
-        if((VIDEO_ROMWord(accessor + index) & 0xFFFF0000U) != 0x3C020000U ||
-            VIDEO_ROMWord(accessor + index + 4U) != 0x03E00008U ||
-            (VIDEO_ROMWord(accessor + index + 8U) & 0xFFFF0000U) != 0x24420000U)
-            return FALSE;
-    start = ((VIDEO_ROMWord(accessor) & 0xFFFFU) << 16) +
-        (int)(short)(VIDEO_ROMWord(accessor + 8U) & 0xFFFFU);
-    end = ((VIDEO_ROMWord(accessor + 12U) & 0xFFFFU) << 16) +
-        (int)(short)(VIDEO_ROMWord(accessor + 20U) & 0xFFFFU);
     if(start >= end || end > gAllocationLength || end - start < 3U ||
         gMemoryState.ROM_Image[start ^ 3U] != 0x11U ||
         gMemoryState.ROM_Image[(start + 1U) ^ 3U] != 0x72U)
         return FALSE;
     position = start + 2U;
-    /* Cap input as well as output, including malformed/empty deflate blocks. */
+    /* Bound input and output even for incomplete or empty deflate blocks. */
     if(end - position > 0x10000U)
         end = position + 0x10000U;
     memset(&stream, 0, sizeof(stream));
@@ -109,6 +102,43 @@ static BOOL VIDEO_GoldenEyeMicrocode(unsigned int accessor)
     return match;
 }
 
+static BOOL VIDEO_GoldenEyeMicrocode(unsigned int accessor)
+{
+    unsigned int index, start, end;
+    if(accessor > gAllocationLength || gAllocationLength - accessor < 24U)
+        return FALSE;
+    for(index = 0; index < 24U; index += 12U)
+        if((VIDEO_ROMWord(accessor + index) & 0xFFFF0000U) != 0x3C020000U ||
+            VIDEO_ROMWord(accessor + index + 4U) != 0x03E00008U ||
+            (VIDEO_ROMWord(accessor + index + 8U) & 0xFFFF0000U) != 0x24420000U)
+            return FALSE;
+    start = ((VIDEO_ROMWord(accessor) & 0xFFFFU) << 16) +
+        (int)(short)(VIDEO_ROMWord(accessor + 8U) & 0xFFFFU);
+    end = ((VIDEO_ROMWord(accessor + 12U) & 0xFFFFU) << 16) +
+        (int)(short)(VIDEO_ROMWord(accessor + 20U) & 0xFFFFU);
+    return VIDEO_GoldenEyeCompressedBlock(start, end);
+}
+
+static BOOL VIDEO_GoldenEyeRawMicrocode(unsigned int start)
+{
+    /* A short reject filter avoids calculating a CRC at every ROM byte.
+     * The complete 4096-byte graphics-code CRC remains the deciding check. */
+    static const unsigned char signature[16] = {
+        0x09, 0x00, 0x05, 0xEA, 0x20, 0x1D, 0x01, 0x10,
+        0x0D, 0x00, 0x04, 0x47, 0x03, 0x00, 0x98, 0x20
+    };
+    unsigned char code[4096];
+    unsigned int index;
+    if(start > gAllocationLength || gAllocationLength - start < sizeof(code))
+        return FALSE;
+    for(index = 0; index < sizeof(signature); index++)
+        if(gMemoryState.ROM_Image[(start + index) ^ 3U] != signature[index])
+            return FALSE;
+    for(index = 0; index < sizeof(code); index++)
+        code[index] = gMemoryState.ROM_Image[(start + index) ^ 3U];
+    return crc32(0L, code, sizeof(code)) == 0x9CBA9D04UL;
+}
+
 static BOOL GEPDUseGoldenEyeGraphicsProfile(void)
 {
     unsigned int offset, limit;
@@ -117,22 +147,46 @@ static BOOL GEPDUseGoldenEyeGraphicsProfile(void)
         return FALSE;
     if(VIDEO_GoldenEyeMicrocode(0x10C8U))
         return TRUE;
-    /* Also allow accessors moved within the resident boot code. */
+    /* Preserve the existing fast path for resident boot accessors. */
     limit = gAllocationLength < 0x20000U ? gAllocationLength : 0x20000U;
     for(offset = 0x1000U; offset <= limit - 24U; offset += 4U)
         if(offset != 0x10C8U && VIDEO_GoldenEyeMicrocode(offset))
             return TRUE;
+    /* Loader-independent fallback. Compressed or raw graphics code may be
+     * anywhere in the ROM, including byte-unaligned resource containers.
+     * This runs only at graphics initialization/RomOpen, never per frame.
+     * ROM/RAM, other plugins, save identity and gameplay patches stay intact. */
+    for(offset = 0x1000U; offset < gAllocationLength - 2U; offset++)
+    {
+        unsigned char first = gMemoryState.ROM_Image[offset ^ 3U];
+        if(first == 0x11U &&
+            gMemoryState.ROM_Image[(offset + 1U) ^ 3U] == 0x72U &&
+            VIDEO_GoldenEyeCompressedBlock(offset, gAllocationLength))
+            return TRUE;
+        if(first == 0x09U && VIDEO_GoldenEyeRawMicrocode(offset))
+            return TRUE;
+    }
     return FALSE;
 }
 
 static unsigned char videoGraphicsHeader[0x40];
 static BOOL videoIsGLideN64 = FALSE;
 static BOOL videoHeaderIsWordSwapped = FALSE;
+static BOOL videoGoldenEyeProfileRequested = FALSE;
+static char videoPluginName[100];
+
+#include "GoldenEyeDepthCompat.h"
 
 static BOOL VIDEO_IsGLideN64Name(const char *name)
 {
-	return _strnicmp(name, "GLideN64", 8) == 0 &&
-		(name[8] == '\0' || name[8] == ' ');
+    char suffix;
+    if(name == NULL || _strnicmp(name, "GLideN64", 8) != 0)
+        return FALSE;
+    suffix = name[8];
+    /* Forks may use a date/version after a separator, not just a space.
+     * Do not confuse the separate Glide64 plugin with GLideN64. */
+    return suffix == '\0' || suffix == ' ' || suffix == '\t' ||
+        suffix == '_' || suffix == '-' || suffix == '(' || suffix == '[';
 }
 
 static void VIDEO_RefreshGraphicsHeader(void)
@@ -140,9 +194,59 @@ static void VIDEO_RefreshGraphicsHeader(void)
 	static const char retailTitle[21] = "GOLDENEYE           ";
 	unsigned int index;
 	memcpy(videoGraphicsHeader, HeaderDllPass, sizeof(videoGraphicsHeader));
-	if(videoIsGLideN64 && videoHeaderIsWordSwapped && GEPDUseGoldenEyeGraphicsProfile())
+	videoGoldenEyeProfileRequested = videoIsGLideN64 && videoHeaderIsWordSwapped &&
+		GEPDUseGoldenEyeGraphicsProfile();
+	if(videoGoldenEyeProfileRequested)
 		for(index = 0; index < 20; index++)
 			videoGraphicsHeader[(0x20U + index) ^ 3U] = retailTitle[index];
+}
+/* One bounded diagnostic file beside the executable, never per-frame I/O.
+ * Reports the header requested from the plugin, NOT an unobserved internal
+ * GLideN64 flag or an assertion that a level has been visually tested. */
+static void VIDEO_LogGraphicsProfile(const char *phase)
+{
+    static const char logName[] = "GEPD-Graphics.log";
+    char path[MAX_PATH], originalTitle[21], graphicsTitle[21];
+    char *separator;
+    DWORD length;
+    unsigned int index, offset;
+    FILE *file;
+    length = GetModuleFileNameA(NULL, path, sizeof(path));
+    if(length == 0 || length >= sizeof(path))
+        return;
+    separator = strrchr(path, '\\');
+    if(separator == NULL || (size_t)(separator + 1 - path) + sizeof(logName) > sizeof(path))
+        return;
+    strcpy(separator + 1, logName);
+    for(index = 0; index < 20; index++)
+    {
+        offset = 0x20U + index;
+        if(videoHeaderIsWordSwapped)
+            offset ^= 3U;
+        originalTitle[index] = (char)HeaderDllPass[offset];
+        graphicsTitle[index] = (char)videoGraphicsHeader[offset];
+        if((unsigned char)originalTitle[index] < 32U || (unsigned char)originalTitle[index] > 126U)
+            originalTitle[index] = '.';
+        if((unsigned char)graphicsTitle[index] < 32U || (unsigned char)graphicsTitle[index] > 126U)
+            graphicsTitle[index] = '.';
+    }
+    originalTitle[20] = graphicsTitle[20] = '\0';
+    file = fopen(path, "w");
+    if(file == NULL)
+        return;
+    fprintf(file, "1964GEPD GE-depth-alias-candidate-20260926\n"
+        "Plugin: %.99s\nGLideN64 recognized: %s\nWord-swapped header: %s\n"
+        "Original ROM title: %.20s\nGraphics-only title: %.20s\n"
+        "GoldenEye graphics profile requested: %s\nStage: %s\n"
+        "Requested workaround: %s\n"
+        "This records profile delivery, not visual verification of the renderer.\n",
+        videoPluginName, videoIsGLideN64 ? "yes" : "no",
+        videoHeaderIsWordSwapped ? "yes" : "no", originalTitle, graphicsTitle,
+        videoGoldenEyeProfileRequested ? "yes" : "no", phase,
+        videoGoldenEyeProfileRequested ? "hack_clearAloneDepthBuffer" : "unchanged");
+    fprintf(file, "Depth alias adapter: %s\nOverlapping framebuffer matches rejected: %lu\n",
+        videoDepthAdapterStatus, videoDepthAliasRejects);
+    fclose(file);
 }
 /* END GE GRAPHICS HEADER */
 
@@ -181,9 +285,12 @@ BOOL LoadVideoPlugin(char *libname)
 {
 	videoIsGLideN64 = FALSE;
 	videoHeaderIsWordSwapped = FALSE;
+	videoGoldenEyeProfileRequested = FALSE;
+	videoPluginName[0] = '\0';
 	/* Release the video plug-in if it has already been loaded */
 	if(hinstLibVideo != NULL)
 	{
+		VIDEO_RestoreDepthCompatibility();
 		FreeLibrary(hinstLibVideo);
 	}
 
@@ -209,16 +316,19 @@ BOOL LoadVideoPlugin(char *libname)
 			if(Plugin_Info.Type == PLUGIN_TYPE_GFX) /* Check if this is a video plugin */
 			{
 				videoIsGLideN64 = VIDEO_IsGLideN64Name(Plugin_Info.Name);
+				if(videoIsGLideN64) VIDEO_InstallDepthCompatibility(hinstLibVideo);
+				strncpy(videoPluginName, Plugin_Info.Name, sizeof(videoPluginName) - 1);
+				videoPluginName[sizeof(videoPluginName) - 1] = '\0';
 				_VIDEO_DllClose = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "CloseDLL");
 				_VIDEO_ExtraChangeResolution = (void(__cdecl *) (HWND, long, HWND)) GetProcAddress
 					(
 						hinstLibVideo,
 						"ChangeWinSize"
 					);
-				_VIDEO_Test = (void(__cdecl *) (HWND)) GetProcAddress(hinstLibVideo, "DllTest");
-				_VIDEO_About = (void(__cdecl *) (HWND)) GetProcAddress(hinstLibVideo, "DllAbout");
+				_VIDEO_Test = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "DllTest");
+				_VIDEO_About = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "DllAbout");
 				_VIDEO_DllConfig = (void(__cdecl *) (HWND)) GetProcAddress(hinstLibVideo, "DllConfig");
-				_VIDEO_MoveScreen = (void(__cdecl *) (int, int)) GetProcAddress(hinstLibVideo, "MoveScreen");
+				_VIDEO_MoveScreen = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "MoveScreen");
 				_VIDEO_DrawScreen = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "DrawScreen");
 				_VIDEO_ViStatusChanged = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "ViStatusChanged");
 				_VIDEO_ViWidthChanged = (void(__cdecl *) (void)) GetProcAddress(hinstLibVideo, "ViWidthChanged");
@@ -341,14 +451,17 @@ void VIDEO_RomOpen(void)
 		{
 			RECT Rect;
 			GetWindowRect(gui.hwnd1964main, &Rect);
-			if(videoIsGLideN64)
-				VIDEO_RefreshGraphicsHeader();
+			VIDEO_RefreshGraphicsHeader();
+			videoDepthAliasRejects = 0;
+			VIDEO_LogGraphicsProfile("RomOpen starting");
 			_VIDEO_RomOpen();
+			VIDEO_LogGraphicsProfile("RomOpen returned");
 			GetPluginsResizeRequest(&Rect);
 		}
 
 		__except(NULL, EXCEPTION_EXECUTE_HANDLER)
 		{
+			VIDEO_LogGraphicsProfile("RomOpen failed");
 			DisplayError("Video RomOpen Failed.");
 		}
 	}
@@ -365,6 +478,7 @@ void VIDEO_RomClosed(void)
 		__try
 		{
 			_VIDEO_RomClosed();
+			VIDEO_LogGraphicsProfile("RomClosed");
 		}
 
 		__except(NULL, EXCEPTION_EXECUTE_HANDLER)
@@ -473,7 +587,10 @@ void CloseVideoPlugin(void)
 	VIDEO_DllClose();
 	videoIsGLideN64 = FALSE;
 	videoHeaderIsWordSwapped = FALSE;
+	videoGoldenEyeProfileRequested = FALSE;
+	videoPluginName[0] = '\0';
 
+	VIDEO_RestoreDepthCompatibility();
 	if(hinstLibVideo) FreeLibrary(hinstLibVideo);
 
 	hinstLibVideo = NULL;
@@ -517,7 +634,6 @@ void VIDEO_DllConfig(HWND hParent)
 		DisplayError("%s cannot be configured.", "Video Plugin");
 	}
 }
-
 /*
  =======================================================================================================================
  =======================================================================================================================
