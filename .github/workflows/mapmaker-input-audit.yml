@@ -19,6 +19,7 @@ jobs:
         run: |
           git apply --check tools/mapmaker-input-compat.patch
           git apply tools/mapmaker-input-compat.patch
+          python3 -c "from pathlib import Path; [(lambda p: p.write_bytes(p.read_bytes().replace(b'\r\n',b'\n')))(Path(n)) for n in ('device.c','maindll.c')]"
           git apply --check tools/freefly-trace.patch
           git apply tools/freefly-trace.patch
           mkdir -p audit-out obj
