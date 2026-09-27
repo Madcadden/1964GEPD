@@ -13,12 +13,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Madcadden/mouse-injector
-          ref: 8bb2a06fe6ec78ba6ab34c64dc8227a8cb960a46
+          ref: fe5a085f88756156035785a5a18cbe3e7234fb36
           persist-credentials: false
-      - name: Apply reviewed candidate integration
+      - name: Apply reviewed candidate and diagnostic integration
         run: |
           git apply --check tools/mapmaker-input-compat.patch
           git apply tools/mapmaker-input-compat.patch
+          git apply --check tools/freefly-trace.patch
+          git apply tools/freefly-trace.patch
           mkdir -p audit-out obj
       - name: Install Win32 build tools
         run: |
@@ -31,15 +33,16 @@ jobs:
           cp Mouse_Injector.dll audit-out/
           i686-w64-mingw32-objdump -p Mouse_Injector.dll > audit-out/pe-info.txt
           i686-w64-mingw32-gcc --version > audit-out/compiler.txt
-      - name: Preserve compiled source and hashes
+      - name: Preserve exact compiled source and hashes
         run: |
           python3 - <<'PY'
           import hashlib,json,pathlib,subprocess,zipfile
           root=pathlib.Path('.')
           paths=[p.decode() for p in subprocess.check_output(['git','ls-files','-z']).split(b'\0') if p]
+          paths += ['freefly_trace.h','games/goldeneye.freeflytrace.h','games/goldeneye.freeflyreport.h']
           manifest={}
           with zipfile.ZipFile('audit-out/source.zip','w',zipfile.ZIP_DEFLATED) as z:
-              for name in paths:
+              for name in sorted(set(paths)):
                   raw=(root/name).read_bytes()
                   z.writestr(name,raw)
                   manifest[name]=hashlib.sha256(raw).hexdigest()
@@ -62,7 +65,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: mapmaker-audit-${{ github.sha }}
+          name: freefly-f2-${{ github.sha }}
           path: audit-out/
           retention-days: 14
           if-no-files-found: error
