@@ -1,0 +1,61 @@
+name: Maintain confirmed input package
+on:
+  push:
+    branches: ['automatic-mod-compatibility']
+    paths:
+      - tools/publish_freefly_f3.py
+      - .github/workflows/publish-freefly-f3.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: current-v022-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/automatic-mod-compatibility'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Madcadden/mouse-injector
+          ref: 8cdff29fa62f9aca63360c9c60ae380111c74b29
+          path: injector
+          persist-credentials: false
+      - name: Verify source preparation
+        run: |
+          python3 injector/tools/prepare_freefly_f3.py
+          python3 injector/tools/prepare_freefly_f3.py
+      - uses: actions/download-artifact@v4
+        with:
+          repository: Madcadden/1964GEPD
+          run-id: 36282441081
+          name: freefly-f3-6e838a5aef50ecb755247d6b431b98b7598e6707
+          path: approved
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v4
+        with:
+          repository: Madcadden/1964GEPD
+          run-id: 36282441081
+          name: freefly-f3-native-6e838a5aef50ecb755247d6b431b98b7598e6707
+          path: native
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish unchanged confirmed DLL and verify current downloads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/publish_freefly_f3.py
+      - name: Retain publication verification and rollback files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f3-publication-${{ github.run_id }}
+          path: release-out/
+          retention-days: 30
+          if-no-files-found: warn
