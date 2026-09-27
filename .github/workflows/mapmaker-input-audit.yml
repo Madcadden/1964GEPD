@@ -13,9 +13,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Madcadden/mouse-injector
-          ref: fe5a085f88756156035785a5a18cbe3e7234fb36
+          ref: e43be0d5c130b15980e07f6076fbca2250fbeece
           persist-credentials: false
-      - name: Apply reviewed candidate and diagnostic integration
+      - name: Integrate the reviewed F2 baseline
         run: |
           git apply --check tools/mapmaker-input-compat.patch
           git apply tools/mapmaker-input-compat.patch
@@ -27,46 +27,90 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y gcc-mingw-w64-i686 binutils-mingw-w64-i686
-      - name: Build input plugin
+      - name: Compile baseline regression with the DLL flags
+        run: |
+          sha256sum games/goldeneye.c > audit-out/f2-camera-source.sha256
+          i686-w64-mingw32-gcc -ansi -O2 -m32 -std=c11 -Wall -DPD_DECOMP=0 -DEXPECT_F2_REJECTION=1 tests/test_freefly_precision.c -lm -static-libgcc -o audit-out/test-f2.exe
+      - name: Apply narrow binary32 comparison fix
+        run: python3 tools/fix_freefly_precision.py
+      - name: Build input plugin and corrected regression
         run: |
           set -o pipefail
           make -j2 CC=i686-w64-mingw32-gcc WINDRES=i686-w64-mingw32-windres 2>&1 | tee audit-out/build.log
           cp Mouse_Injector.dll audit-out/
           i686-w64-mingw32-objdump -p Mouse_Injector.dll > audit-out/pe-info.txt
           i686-w64-mingw32-gcc --version > audit-out/compiler.txt
+          i686-w64-mingw32-gcc -ansi -O2 -m32 -std=c11 -Wall -DPD_DECOMP=0 tests/test_freefly_precision.c -lm -static-libgcc -o audit-out/test-f3.exe
+          i686-w64-mingw32-gcc -ansi -O2 -m32 -std=c11 -Wall -DPD_DECOMP=0 -DSPEEDRUN_BUILD=1 tests/test_freefly_precision.c -lm -static-libgcc -o audit-out/test-f3-speedrun.exe
+      - name: Compile actual DLL load and identity check
+        run: |
+          cat > tests/test_freefly_load.c <<'EOF'
+          #include <windows.h>
+          #include <stdio.h>
+          #include <string.h>
+          #include "../global.h"
+          int main(int argc, char **argv) {
+              if(argc!=2 || sizeof(void*)!=4) return 1;
+              HMODULE dll=LoadLibraryA(argv[1]);
+              if(!dll) {printf("DLL load failed: %lu\n",GetLastError());return 2;}
+              typedef void (__cdecl *InfoFn)(PLUGIN_INFO*);
+              InfoFn get=(InfoFn)GetProcAddress(dll,"GetDllInfo");
+              if(!get) {FreeLibrary(dll);return 3;}
+              PLUGIN_INFO info={0};get(&info);info.Name[99]=0;
+              int ok=info.Type==PLUGIN_TYPE_CONTROLLER && strstr(info.Name,"FreeFly-F3")!=NULL;
+              printf("Native Win32 DLL: %s; type=%u; identified=%d\n",info.Name,info.Type,ok);
+              FreeLibrary(dll);return ok?0:4;
+          }
+          EOF
+          i686-w64-mingw32-gcc -O2 -m32 -std=c11 -DPD_DECOMP=0 tests/test_freefly_load.c -static-libgcc -o audit-out/test-load.exe
       - name: Preserve exact compiled source and hashes
         run: |
           python3 - <<'PY'
           import hashlib,json,pathlib,subprocess,zipfile
-          root=pathlib.Path('.')
           paths=[p.decode() for p in subprocess.check_output(['git','ls-files','-z']).split(b'\0') if p]
-          paths += ['freefly_trace.h','games/goldeneye.freeflytrace.h','games/goldeneye.freeflyreport.h']
+          paths += ['freefly_trace.h','games/goldeneye.freeflytrace.h','games/goldeneye.freeflyreport.h','tests/test_freefly_load.c']
           manifest={}
           with zipfile.ZipFile('audit-out/source.zip','w',zipfile.ZIP_DEFLATED) as z:
               for name in sorted(set(paths)):
-                  raw=(root/name).read_bytes()
+                  raw=pathlib.Path(name).read_bytes()
                   z.writestr(name,raw)
                   manifest[name]=hashlib.sha256(raw).hexdigest()
-          manifest['Mouse_Injector.dll']=hashlib.sha256(pathlib.Path('Mouse_Injector.dll').read_bytes()).hexdigest()
+          for name in ['Mouse_Injector.dll','test-f2.exe','test-f3.exe','test-f3-speedrun.exe','test-load.exe']:
+              manifest[name]=hashlib.sha256(pathlib.Path('audit-out',name).read_bytes()).hexdigest()
           pathlib.Path('audit-out/build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
           PY
           git rev-parse HEAD > audit-out/commit.txt
-      - name: Read current published injector for comparison
-        run: |
-          curl -fL --retry 2 'https://github.com/Madcadden/1964GEPD/releases/download/automatic-mod-compatibility-v0.2.2/1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip' -o current-release.zip
-          python3 - <<'PY'
-          import hashlib,json,pathlib,zipfile
-          raw=pathlib.Path('current-release.zip').read_bytes()
-          with zipfile.ZipFile('current-release.zip') as z:
-              dll=z.read('plugin/Mouse_Injector.dll')
-              exe=z.read('1964.exe')
-          out=pathlib.Path('audit-out/published');out.mkdir()
-          (out/'Mouse_Injector.dll').write_bytes(dll)
-          (out/'hashes.json').write_text(json.dumps({'zip':hashlib.sha256(raw).hexdigest(),'exe':hashlib.sha256(exe).hexdigest(),'injector':hashlib.sha256(dll).hexdigest()},indent=2)+'\n')
-          PY
       - uses: actions/upload-artifact@v4
         with:
-          name: freefly-f2-${{ github.sha }}
+          name: freefly-f3-${{ github.sha }}
           path: audit-out/
+          retention-days: 14
+          if-no-files-found: error
+  native:
+    needs: audit
+    runs-on: windows-2022
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: freefly-f3-${{ github.sha }}
+          path: candidate
+      - name: Reproduce F2 and validate F3 under native Windows x86
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($name in @('test-f2','test-f3','test-f3-speedrun')) {
+            & "./candidate/$name.exe" | Tee-Object -FilePath "candidate/$name-result.txt"
+            if ($LASTEXITCODE -ne 0) { throw "$name failed" }
+          }
+          & ./candidate/test-load.exe (Resolve-Path candidate/Mouse_Injector.dll).Path | Tee-Object -FilePath candidate/dll-load-result.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Actual DLL load check failed' }
+          Get-FileHash candidate/Mouse_Injector.dll -Algorithm SHA256 | Format-List | Out-String | Set-Content candidate/native-dll-hash.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: freefly-f3-native-${{ github.sha }}
+          path: |
+            candidate/*-result.txt
+            candidate/native-dll-hash.txt
           retention-days: 14
           if-no-files-found: error
