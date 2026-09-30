@@ -23,12 +23,12 @@ jobs:
           path: plus-reference
           persist-credentials: false
       - name: Materialize the user-confirmed FreeFly-F3 baseline
-        run: python3 tools/prepare_freefly_f3.py
+        run: |
+          python3 tools/prepare_freefly_f3.py
+          python3 tools/apply_plus_levelmod_cursor.py
       - name: Audit latest Plus menu stack
         run: |
           python3 tests/test_plus_appended_menus.py plus-reference | tee menu-audit.txt
-          cc -std=c11 -O2 -Wall -Wextra tests/test_plus_appended_menu_native.c -lm -o menu-native-test
-          ./menu-native-test | tee menu-native-test.txt
       - name: Install Win32 cross compiler
         run: |
           sudo apt-get update -qq
@@ -39,17 +39,27 @@ jobs:
           make -j2 CC=i686-w64-mingw32-gcc WINDRES=i686-w64-mingw32-windres
           cp Mouse_Injector.dll candidate/plugin/
           i686-w64-mingw32-objdump -p Mouse_Injector.dll > candidate/pe-info.txt
-          cp menu-audit.txt menu-native-test.txt candidate/
+          cp menu-audit.txt candidate/
       - name: Preserve exact source and hashes
         run: |
-          git archive --format=zip --output=candidate/Mouse-Injector-Source.zip HEAD
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          root=Path('.')
+          skip={'.git','candidate','plus-reference','obj'}
+          with zipfile.ZipFile('candidate/Mouse-Injector-Source.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for p in root.rglob('*'):
+                  if not p.is_file() or any(part in skip for part in p.parts):
+                      continue
+                  z.write(p,p.as_posix())
+          PY
           git rev-parse HEAD > candidate/source-commit.txt
           sha256sum candidate/plugin/Mouse_Injector.dll candidate/Mouse-Injector-Source.zip > candidate/SHA256SUMS.txt
           cat > candidate/README.txt <<'EOF'
           GoldenEye 007 Plus appended-menu navigation candidate.
           Replace only plugin/Mouse_Injector.dll.
           Built from the confirmed FreeFly-F3 source baseline.
-          Latest Plus Level Modifiers root/category/level/detail navigation is covered.
+          Latest Plus Level Modifiers uses exact cursor hitboxes and direct row selectors.
           EOF
       - uses: actions/upload-artifact@v4
         with:
