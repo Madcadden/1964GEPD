@@ -24,6 +24,8 @@ jobs:
       - name: Audit latest Plus menu stack
         run: |
           python3 tests/test_plus_appended_menus.py plus-reference | tee menu-audit.txt
+          cc -std=c11 -O2 -Wall -Wextra tests/test_plus_appended_menu_native.c -lm -o menu-native-test
+          ./menu-native-test | tee menu-native-test.txt
       - name: Install Win32 cross compiler
         run: |
           sudo apt-get update -qq
@@ -34,7 +36,7 @@ jobs:
           make -j2 CC=i686-w64-mingw32-gcc WINDRES=i686-w64-mingw32-windres
           cp Mouse_Injector.dll candidate/plugin/
           i686-w64-mingw32-objdump -p Mouse_Injector.dll > candidate/pe-info.txt
-          cp menu-audit.txt candidate/
+          cp menu-audit.txt menu-native-test.txt candidate/
       - name: Preserve exact source and hashes
         run: |
           git archive --format=zip --output=candidate/Mouse-Injector-Source.zip HEAD
