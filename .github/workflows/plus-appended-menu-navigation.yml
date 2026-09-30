@@ -59,7 +59,7 @@ jobs:
           GoldenEye 007 Plus appended-menu navigation candidate.
           Replace only plugin/Mouse_Injector.dll.
           Built from the confirmed FreeFly-F3 source baseline.
-          Latest Plus Level Modifiers uses exact cursor hitboxes and direct row selectors.
+          Latest Plus Level Modifiers uses exact cursor hitboxes, direct row selectors and empty-space click gating.
           EOF
       - uses: actions/upload-artifact@v4
         with:
