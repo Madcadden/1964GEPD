@@ -112,20 +112,18 @@ jobs:
 
           emu=api_json("Madcadden/1964GEPD","396012238")
           body=emu["body"]
-          old=body
-          body,n1=re.subn(r'(?m)(^- ZIP: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["main"]+m.group(2),body)
-          body,n2=re.subn(r'(?m)(^- `1964\.exe`: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["exe"]+m.group(2),body)
-          body,n3=re.subn(r'(?m)(^- `plugin/Mouse_Injector\.dll`: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["dll"]+m.group(2),body)
-          assert (n1,n2,n3)==(1,1,1)
-          assert len(old)==len(body)
+          old_zip="cdb3ed4da5d7f4c1d4299a4f230c40ee1c3cf14c3d3ae751b893f3fd861165a8"
+          old_dll="9a6db746f29a069d452d60eeb16e399fa9e43a026781e445ac4c089af009826b"
+          assert body.count(old_zip)==1 and body.count(old_dll)==1
+          body=body.replace(old_zip,vals["main"]).replace(old_dll,vals["dll"])
           (out/"emu-body.json").write_text(json.dumps({"body":body}))
 
           inj=api_json("Madcadden/mouse-injector","396010717")
-          body=inj["body"]; old=body
-          body,n1=re.subn(r'(?m)(^- ZIP: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["standalone"]+m.group(2),body)
-          body,n2=re.subn(r'(?m)(^- `Mouse_Injector\.dll`: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["dll"]+m.group(2),body)
-          assert (n1,n2)==(1,1)
-          assert len(old)==len(body)
+          body=inj["body"]
+          old_zip="ede062b53f02608be0d70ed762babf2d17c09ea835be84d2355e3ebc18370b5a"
+          old_dll="870509bb4553b16d679edbae1349948943476bee6ee2c8e5d712a945b4c584cd"
+          assert body.count(old_zip)==1 and body.count(old_dll)==1
+          body=body.replace(old_zip,vals["standalone"]).replace(old_dll,vals["dll"])
           (out/"inj-body.json").write_text(json.dumps({"body":body}))
           (out/"hashes.json").write_text(json.dumps(vals,indent=2)+"\n")
           PY
