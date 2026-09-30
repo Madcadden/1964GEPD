@@ -22,21 +22,15 @@ jobs:
           ref: c42295ba400386aac4140957b6f7fa9e53ab911d
           path: plus-reference
           persist-credentials: false
-      - name: Materialize the user-confirmed FreeFly-F3 baseline
-        run: |
-          python3 tools/prepare_freefly_f3.py
-          python3 tools/apply_plus_levelmod_cursor.py
-      - name: Audit latest Plus menu stack
-        run: |
-          python3 tests/test_plus_appended_menus.py plus-reference | tee menu-audit.txt
       - name: Install Win32 cross compiler
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y gcc-mingw-w64-i686 binutils-mingw-w64-i686
-      - name: Build Win32 injector
+      - name: Build Win32 injector from maintained source path
         run: |
           mkdir -p obj candidate/plugin
-          make -j2 _mouseinjector CC=i686-w64-mingw32-gcc WINDRES=i686-w64-mingw32-windres
+          make -j2 CC=i686-w64-mingw32-gcc WINDRES=i686-w64-mingw32-windres
+          python3 tests/test_plus_appended_menus.py plus-reference | tee menu-audit.txt
           cp Mouse_Injector.dll candidate/plugin/
           i686-w64-mingw32-objdump -p Mouse_Injector.dll > candidate/pe-info.txt
           cp menu-audit.txt candidate/
