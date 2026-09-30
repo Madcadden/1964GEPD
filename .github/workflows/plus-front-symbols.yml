@@ -21,7 +21,7 @@ jobs:
           sudo apt-get install -y binutils-mips-linux-gnu gcc-mips-linux-gnu python3 make
       - name: Compile frontend object with MIPS GCC for BSS-layout cross-check
         run: |
-          mips-linux-gnu-gcc -c src/game/front.c -o front-gcc.o -O2 -march=mips2 -mtune=vr4300 -mfix4300 -mabi=32 -G0 -fno-strict-aliasing -fwrapv -fno-pic -mno-abicalls -fno-builtin -fms-extensions -include src/fastbuild_abi.h -I . -I include -I include/ultra64 -I include/PR -I src -I src/game -I src/inflate -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DLEFTOVERSPECTRUM -DBUGFIX_R0 -DBYTEMATCH -DTARGET_N64 -DGE_MODDED_CHEATS -DGE_MAP_MAKER -DGE_SAVE_EEPROM16K -DGE_PHYSICAL_CODE -DGE_PHYSICAL_FASTPATHS -DGE_ROM_SIZE_MIB=32
+          mips-linux-gnu-gcc -c src/game/front.c -o front-gcc.o -O2 -march=mips2 -mtune=vr4300 -mfix4300 -mabi=32 -G0 -fno-strict-aliasing -fwrapv -fno-pic -mno-abicalls -fno-builtin -fms-extensions -I . -I include -I include/ultra64 -I include/PR -I src -I src/game -I src/inflate -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DLEFTOVERSPECTRUM -DBUGFIX_R0 -DBYTEMATCH -DTARGET_N64 -DGE_MODDED_CHEATS -DGE_MAP_MAKER -DGE_SAVE_EEPROM16K -DGE_PHYSICAL_CODE -DGE_PHYSICAL_FASTPATHS -DGE_ROM_SIZE_MIB=32
           mips-linux-gnu-nm -an front-gcc.o > front-nm.txt
           mips-linux-gnu-objdump -drt front-gcc.o > front-objdump.txt
           grep -E 'cursor_h_pos|cursor_v_pos|current_menu|g_LevelModifiers(CategoryChoice|LevelChoice|ListTop)' front-nm.txt | tee front-symbols.txt
