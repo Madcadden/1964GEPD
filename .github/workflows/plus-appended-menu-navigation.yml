@@ -9,6 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # Re-run when the injector fixture changes.
     steps:
       - uses: actions/checkout@v4
         with:
