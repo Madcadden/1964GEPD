@@ -22,6 +22,8 @@ jobs:
           ref: c42295ba400386aac4140957b6f7fa9e53ab911d
           path: plus-reference
           persist-credentials: false
+      - name: Materialize the user-confirmed FreeFly-F3 baseline
+        run: python3 tools/prepare_freefly_f3.py
       - name: Audit latest Plus menu stack
         run: |
           python3 tests/test_plus_appended_menus.py plus-reference | tee menu-audit.txt
@@ -46,7 +48,7 @@ jobs:
           cat > candidate/README.txt <<'EOF'
           GoldenEye 007 Plus appended-menu navigation candidate.
           Replace only plugin/Mouse_Injector.dll.
-          Keeps the confirmed FreeFly-F3 fix.
+          Built from the confirmed FreeFly-F3 source baseline.
           Latest Plus Level Modifiers root/category/level/detail navigation is covered.
           EOF
       - uses: actions/upload-artifact@v4
