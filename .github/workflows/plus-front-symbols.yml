@@ -19,31 +19,34 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y binutils-mips-linux-gnu gcc-mips-linux-gnu python3 make
-      - name: Build IDO recomp tool
-        run: make -C tools/ido5.3_recomp -j2
-      - name: Show front object command
+      - name: Compile frontend object with MIPS GCC for BSS-layout cross-check
         run: |
-          make -n build/u/src/game/front.o MODDED_CHEATS=YES MAP_MAKER=YES SAVE_EEPROM16K=YES COMPARE=0 > front-make.txt || true
-          cat front-make.txt
-      - name: Attempt front object only
-        run: |
-          set +e
-          make build/u/src/game/front.o MODDED_CHEATS=YES MAP_MAKER=YES SAVE_EEPROM16K=YES COMPARE=0 VERBOSE=1 > front-build.txt 2>&1
-          rc=$?
-          cat front-build.txt
-          if [ -f build/u/src/game/front.o ]; then
-            mips-linux-gnu-nm -an build/u/src/game/front.o > front-nm.txt
-            mips-linux-gnu-objdump -drt build/u/src/game/front.o > front-objdump.txt
-          fi
-          echo $rc > front-build-rc.txt
+          mips-linux-gnu-gcc -c src/game/front.c -o front-gcc.o -O2 -march=mips2 -mtune=vr4300 -mfix4300 -mabi=32 -G0 -fno-strict-aliasing -fwrapv -fno-pic -mno-abicalls -fno-builtin -fms-extensions -include src/fastbuild_abi.h -I . -I include -I include/ultra64 -I include/PR -I src -I src/game -I src/inflate -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DLEFTOVERSPECTRUM -DBUGFIX_R0 -DBYTEMATCH -DTARGET_N64 -DGE_MODDED_CHEATS -DGE_MAP_MAKER -DGE_SAVE_EEPROM16K -DGE_PHYSICAL_CODE -DGE_PHYSICAL_FASTPATHS -DGE_ROM_SIZE_MIB=32
+          mips-linux-gnu-nm -an front-gcc.o > front-nm.txt
+          mips-linux-gnu-objdump -drt front-gcc.o > front-objdump.txt
+          grep -E 'cursor_h_pos|cursor_v_pos|current_menu|g_LevelModifiers(CategoryChoice|LevelChoice|ListTop)' front-nm.txt | tee front-symbols.txt
+          python3 - <<'PY'
+          import re
+          syms={}
+          for line in open('front-nm.txt'):
+              p=line.split()
+              if len(p)>=3:
+                  try: syms[p[2]]=int(p[0],16)
+                  except: pass
+          names=['current_menu','cursor_h_pos','cursor_v_pos','g_LevelModifiersCategoryChoice','g_LevelModifiersLevelChoice','g_LevelModifiersListTop']
+          for n in names: print(n,hex(syms.get(n,0)))
+          if all(n in syms for n in names):
+              print('cursor-current',hex(syms['cursor_h_pos']-syms['current_menu']))
+              print('category-current',hex(syms['g_LevelModifiersCategoryChoice']-syms['current_menu']))
+              print('level-current',hex(syms['g_LevelModifiersLevelChoice']-syms['current_menu']))
+              print('top-current',hex(syms['g_LevelModifiersListTop']-syms['current_menu']))
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: plus-front-symbols-${{ github.sha }}
           path: |
-            front-make.txt
-            front-build.txt
-            front-build-rc.txt
             front-nm.txt
             front-objdump.txt
+            front-symbols.txt
           if-no-files-found: warn
           retention-days: 7
