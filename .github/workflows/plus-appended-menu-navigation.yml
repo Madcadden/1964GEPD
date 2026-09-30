@@ -36,7 +36,7 @@ jobs:
       - name: Build Win32 injector
         run: |
           mkdir -p obj candidate/plugin
-          make -j2 CC=i686-w64-mingw32-gcc WINDRES=i686-w64-mingw32-windres
+          make -j2 _mouseinjector CC=i686-w64-mingw32-gcc WINDRES=i686-w64-mingw32-windres
           cp Mouse_Injector.dll candidate/plugin/
           i686-w64-mingw32-objdump -p Mouse_Injector.dll > candidate/pe-info.txt
           cp menu-audit.txt candidate/
