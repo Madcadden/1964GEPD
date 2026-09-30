@@ -1,0 +1,49 @@
+name: Plus front object symbol audit
+on:
+  workflow_dispatch:
+  push:
+    branches: ['audit/plus-front-symbols']
+permissions:
+  contents: read
+jobs:
+  symbols:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: Joshua-1248/GoldenEye-007-Plus
+          ref: c42295ba400386aac4140957b6f7fa9e53ab911d
+          persist-credentials: false
+      - name: Install MIPS binutils and prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y binutils-mips-linux-gnu gcc-mips-linux-gnu python3 make
+      - name: Build IDO recomp tool
+        run: make -C tools/ido5.3_recomp -j2
+      - name: Show front object command
+        run: |
+          make -n build/u/src/game/front.o MODDED_CHEATS=YES MAP_MAKER=YES SAVE_EEPROM16K=YES COMPARE=0 > front-make.txt || true
+          cat front-make.txt
+      - name: Attempt front object only
+        run: |
+          set +e
+          make build/u/src/game/front.o MODDED_CHEATS=YES MAP_MAKER=YES SAVE_EEPROM16K=YES COMPARE=0 VERBOSE=1 > front-build.txt 2>&1
+          rc=$?
+          cat front-build.txt
+          if [ -f build/u/src/game/front.o ]; then
+            mips-linux-gnu-nm -an build/u/src/game/front.o > front-nm.txt
+            mips-linux-gnu-objdump -drt build/u/src/game/front.o > front-objdump.txt
+          fi
+          echo $rc > front-build-rc.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plus-front-symbols-${{ github.sha }}
+          path: |
+            front-make.txt
+            front-build.txt
+            front-build-rc.txt
+            front-nm.txt
+            front-objdump.txt
+          if-no-files-found: warn
+          retention-days: 7
