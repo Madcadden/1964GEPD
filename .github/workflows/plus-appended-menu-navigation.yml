@@ -66,4 +66,5 @@ jobs:
           name: plus-menu-navigation-${{ github.sha }}
           path: candidate/
           retention-days: 14
+          # candidate rebuilt after validated source-generation fix
           if-no-files-found: error
