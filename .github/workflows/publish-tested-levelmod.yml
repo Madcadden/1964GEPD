@@ -1,0 +1,175 @@
+name: Publish tested input files in place
+on:
+  push:
+    branches: ['release/publish-tested-levelmod']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TESTED_ARTIFACT_ID: "11097342475"
+      TESTED_DLL_SHA256: "4ff94a049c7d4d3e5c4bee54e408c7646ddde1a52fff408e06378aa65c2d7eb3"
+      EMU_TAG: "automatic-mod-compatibility-v0.2.2"
+      INJ_TAG: "automatic-mod-compatibility-v0.3.2"
+      EMU_RELEASE_ID: "396012238"
+      INJ_RELEASE_ID: "396010717"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Fetch exact user-tested injector artifact
+        run: |
+          mkdir -p work/tested
+          gh api "repos/Madcadden/1964GEPD/actions/artifacts/$TESTED_ARTIFACT_ID/zip" > work/tested-artifact.zip
+          unzip -q work/tested-artifact.zip -d work/tested
+          test "$(sha256sum work/tested/plugin/Mouse_Injector.dll | awk '{print $1}')" = "$TESTED_DLL_SHA256"
+
+      - name: Download current release files
+        run: |
+          mkdir -p work/emu-old work/inj-old
+          gh release download "$EMU_TAG" --repo Madcadden/1964GEPD -D work/emu-old             -p '1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip'             -p '1964GEPD-Automatic-Mod-Compatibility-v0.2.2-Source.zip'
+          gh release download "$INJ_TAG" --repo Madcadden/mouse-injector -D work/inj-old             -p 'Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip'
+
+      - name: Repack emulator bundle with tested DLL
+        run: |
+          mkdir -p work/emu-package work/out
+          unzip -q work/emu-old/1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip -d work/emu-package
+          test -f work/emu-package/1964.exe
+          test -f work/emu-package/plugin/Mouse_Injector.dll
+          test "$(sha256sum work/emu-package/1964.exe | awk '{print $1}')" = "34ab4aa5dc5ded7a9e04f6950f464e43d6d26b44fa7758e3307406d663fffb32"
+          cp work/tested/plugin/Mouse_Injector.dll work/emu-package/plugin/Mouse_Injector.dll
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("work/emu-package")
+          old="9a6db746f29a069d452d60eeb16e399fa9e43a026781e445ac4c089af009826b"
+          new="4ff94a049c7d4d3e5c4bee54e408c7646ddde1a52fff408e06378aa65c2d7eb3"
+          for p in root.rglob("*"):
+              if not p.is_file() or p.stat().st_size > 2_000_000:
+                  continue
+              try:
+                  text=p.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              replaced=text.replace(old,new).replace(old.upper(),new.upper())
+              if replaced != text:
+                  p.write_text(replaced,encoding="utf-8")
+          PY
+          (cd work/emu-package && zip -qr9 ../out/1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip .)
+          cp work/tested/Mouse-Injector-Source.zip work/out/Mouse-Injector-FreeFly-F3-Source.zip
+
+      - name: Repack standalone injector
+        run: |
+          mkdir -p work/inj-package
+          cp work/tested/plugin/Mouse_Injector.dll work/inj-package/Mouse_Injector.dll
+          (cd work/inj-package && zip -q9 ../out/Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip Mouse_Injector.dll)
+
+      - name: Generate checksums and release bodies
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re, subprocess
+
+          def sha(p):
+              h=hashlib.sha256()
+              with open(p,'rb') as f:
+                  for b in iter(lambda:f.read(1024*1024),b''):
+                      h.update(b)
+              return h.hexdigest()
+
+          out=Path("work/out")
+          main=out/"1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip"
+          standalone=out/"Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip"
+          emusrc=Path("work/emu-old/1964GEPD-Automatic-Mod-Compatibility-v0.2.2-Source.zip")
+          injsrc=out/"Mouse-Injector-FreeFly-F3-Source.zip"
+          exe=Path("work/emu-package/1964.exe")
+          dll=Path("work/tested/plugin/Mouse_Injector.dll")
+
+          vals={
+              "main":sha(main),"standalone":sha(standalone),"emusrc":sha(emusrc),
+              "injsrc":sha(injsrc),"exe":sha(exe),"dll":sha(dll)
+          }
+          assert vals["dll"] == "4ff94a049c7d4d3e5c4bee54e408c7646ddde1a52fff408e06378aa65c2d7eb3"
+          assert vals["exe"] == "34ab4aa5dc5ded7a9e04f6950f464e43d6d26b44fa7758e3307406d663fffb32"
+
+          (out/"SHA256SUMS-EMU.txt").write_text(
+              f'{vals["main"]}  1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip\n'
+              f'{vals["exe"]}  1964.exe\n'
+              f'{vals["dll"]}  plugin/Mouse_Injector.dll\n'
+              f'{vals["emusrc"]}  1964GEPD-Automatic-Mod-Compatibility-v0.2.2-Source.zip\n'
+              f'{vals["injsrc"]}  Mouse-Injector-FreeFly-F3-Source.zip\n')
+          (out/"SHA256SUMS-INJ.txt").write_text(
+              f'{vals["standalone"]}  Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip\n'
+              f'{vals["dll"]}  Mouse_Injector.dll\n')
+
+          def api_json(repo, rid):
+              raw=subprocess.check_output(["gh","api",f"repos/{repo}/releases/{rid}"])
+              return json.loads(raw)
+
+          emu=api_json("Madcadden/1964GEPD","396012238")
+          body=emu["body"]
+          old=body
+          body,n1=re.subn(r'(?m)(^- ZIP: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["main"]+m.group(2),body)
+          body,n2=re.subn(r'(?m)(^- `1964\.exe`: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["exe"]+m.group(2),body)
+          body,n3=re.subn(r'(?m)(^- `plugin/Mouse_Injector\.dll`: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["dll"]+m.group(2),body)
+          assert (n1,n2,n3)==(1,1,1)
+          assert len(old)==len(body)
+          (out/"emu-body.json").write_text(json.dumps({"body":body}))
+
+          inj=api_json("Madcadden/mouse-injector","396010717")
+          body=inj["body"]; old=body
+          body,n1=re.subn(r'(?m)(^- ZIP: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["standalone"]+m.group(2),body)
+          body,n2=re.subn(r'(?m)(^- `Mouse_Injector\.dll`: `)[0-9A-Fa-f]{64}(`$)',lambda m:m.group(1)+vals["dll"]+m.group(2),body)
+          assert (n1,n2)==(1,1)
+          assert len(old)==len(body)
+          (out/"inj-body.json").write_text(json.dumps({"body":body}))
+          (out/"hashes.json").write_text(json.dumps(vals,indent=2)+"\n")
+          PY
+          cp work/out/SHA256SUMS-EMU.txt work/out/SHA256SUMS.txt
+
+      - name: Replace emulator release files and hashes
+        run: |
+          gh release upload "$EMU_TAG" --repo Madcadden/1964GEPD --clobber             work/out/1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip             work/out/Mouse-Injector-FreeFly-F3-Source.zip             work/out/SHA256SUMS.txt
+          gh api --method PATCH "repos/Madcadden/1964GEPD/releases/$EMU_RELEASE_ID" --input work/out/emu-body.json >/dev/null
+
+      - name: Replace standalone injector release files and hashes
+        run: |
+          cp work/out/SHA256SUMS-INJ.txt work/out/SHA256SUMS.txt
+          gh release upload "$INJ_TAG" --repo Madcadden/mouse-injector --clobber             work/out/Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip             work/out/SHA256SUMS.txt
+          gh api --method PATCH "repos/Madcadden/mouse-injector/releases/$INJ_RELEASE_ID" --input work/out/inj-body.json >/dev/null
+
+      - name: Verify published assets and descriptions
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,subprocess,tempfile,os,re
+          vals=json.load(open("work/out/hashes.json"))
+          checks=[
+            ("Madcadden/1964GEPD","automatic-mod-compatibility-v0.2.2",
+             "1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip",vals["main"]),
+            ("Madcadden/mouse-injector","automatic-mod-compatibility-v0.3.2",
+             "Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip",vals["standalone"]),
+          ]
+          for repo,tag,name,expected in checks:
+              with tempfile.TemporaryDirectory() as d:
+                  subprocess.check_call(["gh","release","download",tag,"--repo",repo,"-D",d,"-p",name])
+                  p=os.path.join(d,name)
+                  got=hashlib.sha256(open(p,"rb").read()).hexdigest()
+                  assert got==expected,(repo,name,got,expected)
+          emu=json.loads(subprocess.check_output(["gh","api","repos/Madcadden/1964GEPD/releases/396012238"]))
+          assert vals["main"] in emu["body"] and vals["dll"] in emu["body"] and vals["exe"] in emu["body"]
+          inj=json.loads(subprocess.check_output(["gh","api","repos/Madcadden/mouse-injector/releases/396010717"]))
+          assert vals["standalone"] in inj["body"] and vals["dll"] in inj["body"]
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: publication-verification-${{ github.sha }}
+          path: |
+            work/out/hashes.json
+            work/out/SHA256SUMS-EMU.txt
+            work/out/SHA256SUMS-INJ.txt
+          retention-days: 14
