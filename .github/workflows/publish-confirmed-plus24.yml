@@ -1,0 +1,53 @@
+name: Publish confirmed Mouse Injector update
+on:
+  push:
+    branches: ['automatic-mod-compatibility']
+    paths:
+      - .github/workflows/publish-confirmed-plus24.yml
+      - tools/publish_confirmed_plus24.py
+      - release/plus24-publication.json
+permissions:
+  contents: read
+concurrency:
+  group: confirmed-plus24-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/automatic-mod-compatibility'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Madcadden/mouse-injector
+          ref: 2c5a019f3a1ab564da74ac9db7433eec715511f9
+          path: injector-source
+          persist-credentials: false
+      - name: Verify confirmed binary, corresponding source and fresh release backups
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/publish_confirmed_plus24.py prepare --config release/plus24-publication.json
+      - name: Preserve rollback assets before publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: plus24-before-${{ github.run_id }}
+          path: release-out/previous/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Update existing release and verify public downloads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/publish_confirmed_plus24.py publish --config release/plus24-publication.json
+      - name: Preserve verification and published packages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plus24-publication-${{ github.run_id }}
+          path: release-out/
+          retention-days: 90
+          if-no-files-found: error
