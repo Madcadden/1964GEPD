@@ -76,6 +76,8 @@ static int PDNormalizeDevelopmentCart(unsigned char *rom, size_t size)
     if (!rom || size != 0x4000000) return 0;
     for (i = 0; i < sizeof(ec_header); ++i)
         if (rom[i ^ 3] != ec_header[i]) return 0;
+    /* Identify the CIC6105 IPL and uncompressed bootstrap in host byte order. */
+    if (crc32(0L, rom + 0x40, 0x3010) != 0xbaddf59aUL) return 0;
     if (rom[0x3050 ^ 3] != 0x11 || rom[0x3051 ^ 3] != 0x73 ||
         rom[0x3052 ^ 3] != 5 || rom[0x3053 ^ 3] != 0x87 ||
         rom[0x3054 ^ 3] != 0x10) return 0;

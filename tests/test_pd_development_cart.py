@@ -66,6 +66,9 @@ def main():
         broken_header = ec.copy()
         broken_header[0x25] ^= 1
         run(broken_header, 0)
+        broken_bootstrap = ec.copy()
+        broken_bootstrap[0x500] ^= 1
+        run(broken_bootstrap, 0)
         broken_code = ec.copy()
         broken_code[0x8000] ^= 1
         run(broken_code, 0)
@@ -87,7 +90,7 @@ def main():
         assert sum(a != b for a, b in zip(original_lib, fixed_lib)) == 8
         for p, sha in originals.items():
             assert hashlib.sha256(Path(p).read_bytes()).hexdigest() == sha
-        print(json.dumps({'result': 'pass', 'cases': 11,
+        print(json.dumps({'result': 'pass', 'cases': 12,
                           'fixed_library_matches_dc': True,
                           'original_rom_files_unchanged': True,
                           'fixed_crc_header': fixed[0x10:0x18].hex(),
