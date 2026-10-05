@@ -37,6 +37,7 @@ int				romlist_sort_method = ROMLIST_GAMENAME;
 int				romlistNameToDisplay = ROMLIST_DISPLAY_FILENAME;
 int				selected_rom_index;
 static char		savedrompath[_MAX_PATH];
+static char		loadedrompath[sizeof(((ROMLIST_ENTRY *)0)->romfilename)];
 int				romListHeaderClickedColumn = 0;
 void			RomListGetGoodRomNameToDisplay(char *buf, int index);
 
@@ -189,7 +190,7 @@ BOOL RomListReadDirectory(const char *spath)
 				else
 				{
 					/*
-					 * Cannot add to ini_entries list for some reason £
+					 * Cannot add to ini_entries list for some reason Â£
 					 * Skipped
 					 */
 					continue;
@@ -262,9 +263,9 @@ int RomListAddEntry(INI_ENTRY *newentry, char *romfilename, long filesize)
 	{
 		/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 		/*
-		 * We can either locate the entry in the ini_entries list £
-		 * or this is a new entry, never in the ini_entries list, but we have £
-		 * successfully add it into the ini_entries list £
+		 * We can either locate the entry in the ini_entries list Â£
+		 * or this is a new entry, never in the ini_entries list, but we have Â£
+		 * successfully add it into the ini_entries list Â£
 		 * Allocate memory for a new ROMLIST_ENTRY
 		 */
 		ROMLIST_ENTRY	*pnewentry = NULL;
@@ -774,13 +775,20 @@ void ReadRomHeaderInMemory(INI_ENTRY *ini_entry)
  =======================================================================================================================
  =======================================================================================================================
  */
-void RomListSelectLoadedRomEntry(void)
+void RomListSetLoadedRomPath(const char *path)
+{
+	loadedrompath[0] = '\0';
+	if(path && strlen(path) < sizeof(loadedrompath)) strcpy(loadedrompath, path);
+}
+
+BOOL RomListSelectLoadedRomEntry(void)
 {
 	/*~~~~~~~~~~~~~~*/
 	int			i;
 	INI_ENTRY	entry;
 	/*~~~~~~~~~~~~~~*/
 
+	memset(&entry, 0, sizeof(entry));
 	ReadRomHeaderInMemory(&entry);
 
 	for(i = 0; i < romlist_count; i++)
@@ -790,11 +798,35 @@ void RomListSelectLoadedRomEntry(void)
 			romlist[i]->pinientry->crc2 == entry.crc2 &&
 			romlist[i]->pinientry->countrycode == entry.countrycode )
 		{
-			break;
+			selected_rom_index = i;
+			return TRUE;
 		}
 	}
 
-	selected_rom_index = i;
+	/* A verified load-time repair can change the ROM's identity. Directory
+	 * scans still see the original file header. Preserve that file's custom
+	 * options while adding the loaded identity, without rewriting its entry.
+	 */
+	if(!loadedrompath[0])
+	{
+		DisplayError("Cannot find options for the loaded ROM.");
+		return FALSE;
+	}
+	for(i = 0; i < romlist_count; ++i)
+	{
+		if(stricmp(romlist[i]->romfilename, loadedrompath) == 0)
+		{
+			CopyIniEntry(&entry, romlist[i]->pinientry);
+			ReadRomHeaderInMemory(&entry);
+			break;
+		}
+	}
+	if(RomListAddEntry(&entry, loadedrompath, gAllocationLength) < 0)
+	{
+		DisplayError("Cannot create options for the loaded ROM.");
+		return FALSE;
+	}
+	return TRUE;
 }
 
 /*
@@ -808,7 +840,7 @@ ROMLIST_ENTRY *RomListSelectedEntry(void)
 
 /*
  =======================================================================================================================
-    DupString - allocates a copy of a string. £
+    DupString - allocates a copy of a string. Â£
     lpsz - address of the null-terminated string to copy.
  =======================================================================================================================
  */
@@ -832,10 +864,10 @@ typedef struct	myitem_tag
 
 /*
  =======================================================================================================================
-    InitListViewItems - adds items and subitems to a list view. £
-    Returns TRUE if successful, or FALSE otherwise. £
-    hwndLV - handle to the list view control. £
-    pfData - text file containing list view items with columns £
+    InitListViewItems - adds items and subitems to a list view. Â£
+    Returns TRUE if successful, or FALSE otherwise. Â£
+    hwndLV - handle to the list view control. Â£
+    pfData - text file containing list view items with columns Â£
     separated by semicolons.
  =======================================================================================================================
  */
@@ -923,8 +955,8 @@ BOOL WINAPI InitListViewItems(HWND hwndLV)
 
 /*
  =======================================================================================================================
-    InitListViewColumns - adds columns to a list view control. £
-    Returns TRUE if successful, or FALSE otherwise. £
+    InitListViewColumns - adds columns to a list view control. Â£
+    Returns TRUE if successful, or FALSE otherwise. Â£
     hwndLV - handle to the list view control.
  =======================================================================================================================
  */
@@ -1197,7 +1229,7 @@ HWND NewRomList_CreateListViewControl(HWND hwndParent)
 	if(!guioptions.display_romlist) return NULL;
 
 	/*
-	 * Ensure that the common control DLL is loaded, and then create £
+	 * Ensure that the common control DLL is loaded, and then create Â£
 	 * the header control.
 	 */
 	InitCommonControls();

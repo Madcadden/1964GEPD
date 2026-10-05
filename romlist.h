@@ -84,7 +84,8 @@ void NewRomList_ListViewChangeWindowRect(void);
 void NewRomList_Sort(void);
 void RomListRememberColumnWidth(void);
 ROMLIST_ENTRY *RomListGet_Selected_Entry(void);
-void RomListSelectLoadedRomEntry(void);
+void RomListSetLoadedRomPath(const char *path);
+BOOL RomListSelectLoadedRomEntry(void);
 
 LRESULT APIENTRY RomListDialog(HWND hDlg, unsigned message, WORD wParam, LONG lParam);
 LRESULT APIENTRY ColumnSelectDialog(HWND hDlg, unsigned message, WORD wParam, LONG lParam);

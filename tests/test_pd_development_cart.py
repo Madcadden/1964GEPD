@@ -87,7 +87,7 @@ def main():
         assert sum(a != b for a, b in zip(original_lib, fixed_lib)) == 8
         for p, sha in originals.items():
             assert hashlib.sha256(Path(p).read_bytes()).hexdigest() == sha
-        print(json.dumps({'result': 'pass', 'cases': 12,
+        print(json.dumps({'result': 'pass', 'cases': 11,
                           'fixed_library_matches_dc': True,
                           'original_rom_files_unchanged': True,
                           'fixed_crc_header': fixed[0x10:0x18].hex(),

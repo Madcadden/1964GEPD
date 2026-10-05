@@ -1524,6 +1524,7 @@ void Play(BOOL WithFullScreen)
 			Stop();
 		}
 
+		if(!RomListSelectLoadedRomEntry()) return;
 		PrepareBeforePlay(guistatus.IsFullScreen);
 
 		core = currentromoptions.Emulator;
@@ -1832,6 +1833,7 @@ BOOL WinLoadRomStep2(char *szFileName)
 		Rom_Loaded = FALSE;
 		return FALSE;
 	}
+	RomListSetLoadedRomPath(szFileName);
 	
 	lstrcat(gui.szWindowTitle, rominfo.name);
 	
@@ -4725,7 +4727,6 @@ void PrepareBeforePlay(int IsFullScreen)
 	}
 
 	/* Setting options */
-	RomListSelectLoadedRomEntry();
 	GenerateCurrentRomOptions();
 
 	/* Hide cursor */
@@ -5767,5 +5768,4 @@ void OnFreshRomList()
 		Set_Ready_Message();
 	}
 }
-
 
