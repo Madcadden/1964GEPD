@@ -46,6 +46,7 @@
 #include "../romlist.h"
 #include "../cheatcode.h"
 #include "../compiler.h"
+#include "PerfectDarkSpeedCompat.h"
 
 #ifdef WINDEBUG_1964
 #include "windebug.h"
@@ -188,7 +189,7 @@ void CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 #endif
 				}
 
-				if(rominfo.TV_System == TV_SYSTEM_NTSC) // if USA ROM
+				if(rominfo.TV_System == TV_SYSTEM_NTSC || emustatus.game_hack == GHACK_PD)
 				{
 					GEPDQueueRuntimeHacks();
 					if(emustatus.gepd_pause)
@@ -3192,7 +3193,9 @@ static BOOL alreadypaused = FALSE;
 static unsigned int gepdPauseAddress = 0;
 static volatile LONG gepdPatchesPending = 0;
 static BOOL gepdGameEntryReached = FALSE;
-static unsigned int pdSpeedContext[27];
+static unsigned int pdSpeedContext[PD_SPEED_MAX_WORDS];
+static unsigned int pdSpeedWords = 0;
+static unsigned int pdSpeedBranch = 0;
 static unsigned int geRAMHeadRollSite = 0;
 static unsigned int geRAMHeadRollContext[12];
 
@@ -3212,6 +3215,7 @@ static void GEPDResetHackResolution(void)
 	geRAMFiringSite = 0;
 	geRAMHeadRollSite = 0;
 	pdSpeedSite = 0;
+	pdSpeedWords = pdSpeedBranch = 0;
 	pdHeadRollSite = 0;
 	alreadypaused = FALSE;
 	gepdPauseAddress = 0;
@@ -4385,8 +4389,6 @@ void GEDisableHeadRoll(void)
 	}
 }
 
-static const unsigned int pdspeedpattern[27] = {0x8C8501E4, 0x0040F809, 0x8C8601E0, 0x0C005431, 0x00000000, 0x10400011, 0x3C0F8006, 0x8DEFEEC0, 0x51E0000F, 0x8FBF0014, 0x0C005207, 0x00000000, 0x5C40000B, 0x8FBF0014, 0x0C00543A, 0x00000000, 0x0C00508E, 0x00000000, 0x0C005451, 0x00000000, 0x3C04800A, 0x0C005016, 0x24849A60, 0x8FBF0014, 0x27BD0018, 0x03E00008, 0x00000000};
-static const unsigned int pdspeedmask[27] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFFFF0000, 0xFC000000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
 static const unsigned int pdmasteroriginal[20] = {0x3C10800A, 0x3C11000B, 0x3C120002, 0x3C130005, 0x3C140001, 0xAFBF002C, 0x36947D78, 0x3673F5E1, 0x3652FAF0, 0x3631EBC2, 0x26109FC0, 0x0C012144, 0x00000000, 0x8E0E0018, 0x8E0F0020, 0x8E190024, 0x004E1823, 0x01E33821, 0x00F3C021, 0x0311001B};
 static const unsigned int pdguardoriginal[18] = {0x808E0007, 0x24010008, 0x00001025, 0x15C1000A, 0x00000000, 0x8C8F004C, 0x31F80060, 0x13000006, 0x00000000, 0xAC85004C, 0x0FC0C495, 0xAC860050, 0x10000001, 0x24020001, 0x8FBF0014, 0x27BD0018, 0x03E00008, 0x00000000};
 static const unsigned int pdcaveoriginal[42] = {0x4C494748, 0x5453203A, 0x20486974, 0x206F6363, 0x75726564, 0x206F6E20, 0x6C696768, 0x74202564, 0x20696E20, 0x726F6F6D, 0x2025640A, 0x00000000, 0x4C322825, 0x6429202D, 0x3E200000, 0x4C32202D, 0x3E204255, 0x494C4420, 0x4C494748, 0x54532054, 0x52414E53, 0x46455220, 0x5441424C, 0x45202D20, 0x53746172, 0x74696E67, 0x0A000000, 0x4C322825, 0x6429202D, 0x3E200000, 0x4C325F42, 0x75696C64, 0x5472616E, 0x73666572, 0x5461626C, 0x6573202D, 0x3E20466F, 0x756E6420, 0x25642070, 0x6F727461, 0x6C730A00, 0x4C322825};
@@ -4429,26 +4431,31 @@ void PDTimingHack(void)
 
 void PDSpeedHack(void)
 {
-	unsigned int context, index;
+	unsigned int index;
+	PD_SPEED_RESOLUTION resolution;
 	if(emustatus.game_hack != GHACK_PD)
 		return;
-	if(pdSpeedSite != 0)
+	if(pdSpeedSite >= 0x8000000C && pdSpeedWords != 0 &&
+		pdSpeedWords <= PD_SPEED_MAX_WORDS && current_rdram_size >= pdSpeedWords * 4 &&
+		pdSpeedSite - 0x8000000C <= current_rdram_size - pdSpeedWords * 4)
 	{
-		for(index = 0; index < 27; index++)
+		for(index = 0; index < pdSpeedWords; index++)
 			if(LOAD_UWORD_PARAM(pdSpeedSite - 0xC + index * 4) !=
-				(index == 3 ? 0x10000013 : pdSpeedContext[index]))
+				(index == 3 ? pdSpeedBranch : pdSpeedContext[index]))
 				break;
-		if(index == 27)
+		if(index == pdSpeedWords)
 			return;
 	}
-	pdSpeedSite = 0;
-	context = GEPDFindRAMPattern(pdspeedpattern, pdspeedmask, 27);
-	if(context == 0)
+	pdSpeedSite = pdSpeedWords = pdSpeedBranch = 0;
+	resolution = PDResolveSpeedPatch((const unsigned int *)gMS_RDRAM, current_rdram_size);
+	if(resolution.context == 0)
 		return;
-	for(index = 0; index < 27; index++)
-		pdSpeedContext[index] = LOAD_UWORD_PARAM(context + index * 4);
-	pdSpeedSite = context + 0xC;
-	GEPDWriteRAMCode(pdSpeedSite, 0x10000013);
+	for(index = 0; index < resolution.words; index++)
+		pdSpeedContext[index] = LOAD_UWORD_PARAM(resolution.context + index * 4);
+	pdSpeedWords = resolution.words;
+	pdSpeedBranch = resolution.branch;
+	pdSpeedSite = resolution.context + 0xC;
+	GEPDWriteRAMCode(pdSpeedSite, pdSpeedBranch);
 }
 
 static const unsigned int pdheadrollpattern[9] = {0x00047080, 0x01C47021, 0x000E7140, 0x3C02800B, 0x004E1021, 0x9442C800, 0x304F0080, 0x03E00008, 0x000F102B};
@@ -4490,9 +4497,9 @@ void GEPDApplyPendingHacks(void)
 	/* Called at VI dispatch on the emulation thread, after the current
 	 * generated block has returned. Never race code compilation on the UI
 	 * timer thread when mutating instructions or invalidating native code. */
-	if(!gepdGameEntryReached || !InterlockedExchange(&gepdPatchesPending, 0) || rominfo.TV_System != TV_SYSTEM_NTSC)
+	if(!gepdGameEntryReached || !InterlockedExchange(&gepdPatchesPending, 0))
 		return;
-	if(emustatus.game_hack == GHACK_GE)
+	if(emustatus.game_hack == GHACK_GE && rominfo.TV_System == TV_SYSTEM_NTSC)
 	{
 		GEReconcileNativeEditorReturn();
 		GEReconcileEditorTextures();
@@ -4546,7 +4553,7 @@ static unsigned int GEPDResolvePauseAddress(void)
 void GEPDPause(BOOL pause)
 {
 	unsigned int address, state;
-	if(rominfo.TV_System != TV_SYSTEM_NTSC || emustatus.game_hack == GHACK_NONE)
+	if((rominfo.TV_System != TV_SYSTEM_NTSC && emustatus.game_hack != GHACK_PD) || emustatus.game_hack == GHACK_NONE)
 		return;
 	if(pause)
 	{
@@ -4727,12 +4734,15 @@ void PrepareBeforePlay(int IsFullScreen)
 
 	GEPDResetHackResolution();
 	emustatus.game_hack = GHACK_NONE;
-	if(rominfo.TV_System == TV_SYSTEM_NTSC) // if USA ROM
+	if(rominfo.TV_System == TV_SYSTEM_NTSC &&
+		(GEGetHackResolution()->gamevalid || !strncmp(currentromoptions.Game_Name, "GOLDENEYE", 9) || strnstr(currentromoptions.Game_Name, "GOLD", 4) != NULL))
+		emuoptions.UsingRspPlugin = TRUE, emustatus.game_hack = GHACK_GE;
+	else if(!strncmp(currentromoptions.Game_Name, "Perfect Dark", 12) || !strncmp(currentromoptions.Game_Name, "GoldenEye X", 11) || strnstr(currentromoptions.Game_Name, "Perfect", 7) != NULL)
 	{
-		if(GEGetHackResolution()->gamevalid || !strncmp(currentromoptions.Game_Name, "GOLDENEYE", 9) || strnstr(currentromoptions.Game_Name, "GOLD", 4) != NULL)
-			emuoptions.UsingRspPlugin = TRUE, emustatus.game_hack = GHACK_GE;
-		else if(!strncmp(currentromoptions.Game_Name, "Perfect Dark", 12) || !strncmp(currentromoptions.Game_Name, "GoldenEye X", 11) || strnstr(currentromoptions.Game_Name, "Perfect", 7) != NULL)
-			emuoptions.UsingRspPlugin = FALSE, emustatus.game_hack = GHACK_PD;
+		/* PAL PD uses the same direct audio/video task dispatch as NTSC.
+		 * Keep its native PAL VI rate; each optional patch verifies its code. */
+		emuoptions.UsingRspPlugin = FALSE;
+		emustatus.game_hack = GHACK_PD;
 	}
 
 	init_whole_mem_func_array();					/* Needed here. The tlb function pointers change. */
@@ -5757,4 +5767,5 @@ void OnFreshRomList()
 		Set_Ready_Message();
 	}
 }
+
 

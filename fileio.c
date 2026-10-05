@@ -34,6 +34,7 @@
 #include "win32/windebug.h"
 #include "gamesave.h"
 #include "emulator.h"
+#include "PerfectDarkPrototype.h"
 
 BOOL	Is_Reading_Rom_File = FALSE;;
 BOOL	To_Stop_Reading_Rom_File = FALSE;
@@ -188,10 +189,10 @@ void SwapRomName(uint8 *name)
 	name[i + 1] = '\0';
 
 	/*
-	 * for( ; i>=0; i-- ) £
-	 * { £
-	 * if( name[i] == ':' ) £
-	 * name[i] = '-'; £
+	 * for( ; i>=0; i-- ) Â£
+	 * { Â£
+	 * if( name[i] == ':' ) Â£
+	 * name[i] = '-'; Â£
 	 * }
 	 */
 }
@@ -446,6 +447,7 @@ BOOL ReadRomData(char *rompath)
 		Is_Reading_Rom_File = FALSE;
 
 		ByteSwap(gAllocationLength, gMS_ROM_Image);
+		PDNormalizeDevelopmentCart(gMS_ROM_Image, gROMLength);
 		memcpy((uint8 *) &rominfo.validation, gMS_ROM_Image, 0x40);
 		SwapRomHeader((uint8 *) &rominfo.validation);
 
@@ -573,7 +575,8 @@ BOOL ReadZippedRomData(char *rompath)
 								}
 							}
 
-							ByteSwap(gAllocationLength, gMS_ROM_Image);
+	ByteSwap(gAllocationLength, gMS_ROM_Image);
+	PDNormalizeDevelopmentCart(gMS_ROM_Image, gROMLength);
 							memcpy((uint8 *) &rominfo.validation, gMS_ROM_Image, 0x40);
 							SwapRomHeader((uint8 *) &rominfo.validation);
 
@@ -801,7 +804,7 @@ BOOL FileIO_CreateFile(char *filename, int size)
 
 /*
  =======================================================================================================================
-    Get Directory // £
+    Get Directory // Â£
     To create a complete filename to load/save mempak/sram/eeprom //
  =======================================================================================================================
  */

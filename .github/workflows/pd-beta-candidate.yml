@@ -1,0 +1,37 @@
+name: Build Perfect Dark beta candidate
+on:
+  push:
+    branches: ['fix/pd-beta-compatibility']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build Release Win32
+        shell: pwsh
+        run: ./tools/build_emulator.ps1 -SourceRoot . -OutputDirectory ./candidate
+      - name: Archive exact corresponding source
+        shell: pwsh
+        run: |
+          git archive --format=zip --output=candidate/emulator-source.zip HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Source archive failed' }
+          git rev-parse HEAD | Set-Content candidate/source-commit.txt
+      - name: Save candidate build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: perfect-dark-beta-emulator-${{ github.sha }}
+          path: candidate/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Export candidate for the project workspace
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python tools/export_pd_candidate.py
