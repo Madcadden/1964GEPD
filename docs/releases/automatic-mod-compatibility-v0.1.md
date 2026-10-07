@@ -1,6 +1,6 @@
 ## Current Auto-Mod Edition — Perfect Dark beta support
 
-This download now contains the working Perfect Dark beta build: **1964 GEPD Auto-Mod Edition v0.2.2 with Mouse Injector v0.3.2**. Both the v0.2.2 release and the older v0.1 release URL serve the same current binaries. The v0.1 asset keeps its old filename so existing download links remain useful.
+This download now contains the working Perfect Dark beta build: **1964 GEPD Auto-Mod Edition v0.2.2 with Mouse Injector v0.3.2**. Both the v0.2.2 release and the older v0.1 release URL serve the same current binaries.
 
 ### What's included
 
@@ -49,15 +49,15 @@ GoldenEye Plus itself provides expanded 1–4-player local co-op. Online co-op i
 
 The Perfect Dark beta build and Plus free-fly fix have been confirmed working in gameplay. Automated checks also cover ROM signatures, input routing, patch ownership and source/build correspondence. Automatic discovery applies to recognized code layouts; missing or ambiguous matches are skipped. PD debug menus use keyboard/controller navigation.
 
-The source ZIPs are the exact build snapshots. `Mouse-Injector-FreeFly-F3-Source.zip` is retained as a legacy filename for the current injector source, also provided as `Mouse-Injector-PD-Beta-Source.zip`. GitHub's automatically generated source archives below still refer to the historical tags; use the attached build-source ZIPs or the exact source links below.
+The attached source ZIPs contain the exact emulator and Mouse Injector build snapshots. GitHub's automatically generated source archives below still refer to the historical tags; use the attached build-source ZIPs or the exact source links below.
 
 ### Files and source
 
-The update contains `1964.exe` and `plugin/Mouse_Injector.dll`. The standalone matching injector is also available from the [Mouse Injector release](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2).
+`1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip` contains the current `1964.exe` and `plugin/Mouse_Injector.dll`. The standalone matching injector is also available from the [Mouse Injector release](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2).
 
 SHA-256:
 
-- Update ZIP: `c57d9ecacb5bc1c3ef86770cf291a79aba470e5d721f0d308fad512597351ab5`
+- Update ZIP: `44657b18aebaf39e85c19de7614bb121c37d0f2f9736d673da1ffde08f5760a9`
 - `1964.exe`: `3daaef3916c74d48f1de0dff1606ca3c67d316400c70ecca0723b16575cc9aad`
 - `plugin/Mouse_Injector.dll`: `968c4b9ae71f98733ef9a6523086df0890d2267c33795747eaa2bdb175ca0929`
 

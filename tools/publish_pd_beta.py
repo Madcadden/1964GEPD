@@ -117,6 +117,13 @@ def load_plan(config_path, source):
             payloads.append(dict(payload, bytes=len(raw), local_path=str(path)))
             inputs[payload['path']] = sha(raw)
         require(has_package, 'Each release needs a ZIP package with binary member hashes')
+        removals = entry.get('remove_assets', [])
+        require(isinstance(removals, list) and len(set(removals)) == len(removals),
+                'Invalid duplicate removal list')
+        for name in removals:
+            safe_name(name)
+            require(name in {a['name'] for a in assets}, 'Removal not present in reviewed snapshot')
+            require(name not in names, 'Cannot remove and replace the same asset')
         targets.append(dict(entry, before=before, body=body_raw.decode('utf-8'),
                             payloads=payloads, key=str(before['id'])))
     require(sum(t['make_latest'] for t in targets) == 1, 'Exactly one target must become latest')
@@ -124,6 +131,7 @@ def load_plan(config_path, source):
             'inputs_sha256': inputs,
             'targets': [{'id': t['before']['id'], 'tag': t['before']['tag_name'],
                          'name': t['name'], 'make_latest': t['make_latest'],
+                         'remove_assets': t.get('remove_assets', []),
                          'payloads': {p['name']: p['sha256'] for p in t['payloads']}}
                         for t in targets]}
     return config, targets, plan
@@ -328,6 +336,14 @@ def publish(config, targets, plan, output):
             allowed = {r['asset']['id'] for r in staged if r['target']['key'] == target['key']}
             check_before(target, current_release(config, target['before']['id']), allowed)
             check_tag(config, target)
+        # Explicitly superseded aliases are backed up and retained under a
+        # temporary name until every replacement download has been verified.
+        for target in targets:
+            for name in target.get('remove_assets', []):
+                old = next(a for a in target['before']['assets'] if a['name'] == name)
+                api(config, '/releases/assets/' + str(old['id']), 'PATCH',
+                    {'name': 'previous-' + run + '-' + old['name']})
+                moved_old.append({'target': target, 'asset': old})
         for record in staged:
             target, payload, asset = record['target'], record['payload'], record['asset']
             old = next((a for a in target['before']['assets'] if a['name'] == payload['name']), None)
@@ -349,7 +365,7 @@ def publish(config, targets, plan, output):
                 require(final.get(field) == target['before'].get(field), 'Release identity/date changed: ' + field)
             check_tag(config, target)
             by_name = {a['name']: a for a in final['assets']}
-            replacement_names = {p['name'] for p in target['payloads']}
+            replacement_names = {p['name'] for p in target['payloads']} | set(target.get('remove_assets', []))
             for old in target['before']['assets']:
                 if old['name'] not in replacement_names:
                     require(asset_identity(by_name[old['name']]) == asset_identity(old), 'Unrelated asset changed')
@@ -378,7 +394,7 @@ def publish(config, targets, plan, output):
     for target in targets:
         final = current_release(config, target['before']['id'])
         write_json(output / ('release-after-' + target['key'] + '.json'), final)
-        expected = {a['name'] for a in target['before']['assets']} | {p['name'] for p in target['payloads']}
+        expected = ({a['name'] for a in target['before']['assets']} - set(target.get('remove_assets', []))) | {p['name'] for p in target['payloads']}
         if not cleanup_errors:
             require({a['name'] for a in final['assets']} == expected, 'Unexpected final release inventory')
         report['releases'].append({'id': final['id'], 'url': final['html_url'],
