@@ -1,32 +1,27 @@
-# 1964 GEPD 0.8.5 - Auto-Mod Edition
+# 1964 GEPD 0.8.5 — Auto-Mod Edition
 
-**[Download Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)** — includes Mouse Injector v0.3.2.
+**[Download Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)** — includes the matching **[Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)**.
 
-1964 0.8.5 GEPD Edition with automatic compatibility support for GoldenEye 007 and Perfect Dark ROM mods.
+An unofficial update to 1964 GEPD for GoldenEye 007 and Perfect Dark, with automatic compatibility for recognized ROM mods, GoldenEye Plus Map Maker controls and Perfect Dark debug/beta support.
 
-This branch automatically locates relocated GoldenEye game segments and the firing-rate and head-roll modification points instead of relying on fixed retail-ROM addresses. It also includes the corrected main-window and toolbar appearance.
+The v0.2.2 download has been refreshed with the working Perfect Dark beta build. The [older v0.1 release link](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.1) also serves the same current emulator and injector, so existing links continue to work.
 
-The included **[Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)** adds FOV and input discovery, Map Maker mouse controls, and configurable N64 D-pad and shoulder buttons.
+## Latest changes
 
-## GoldenEye mod graphics
+- Supports the **Perfect Dark NTSC 6.4 and PAL 28.7 debug/beta layouts**, including normal and cursor mouse aiming, EyeSpy pitch, and separate interaction/reload controls.
+- Adds the matching controller-polling speed patches and PAL Perfect Dark task handling. **PAL keeps its native timing.**
+- Repairs the recognized original **EC development-cart header and two development-board reads in the loaded copy**. The ROM file on disk stays unchanged.
+- Applies the correct Perfect Dark EEPROM capacity to PAL and preserves ROM options when EC repair changes the loaded identity.
 
-Fixes flashing or broken split-screen views in recognized GoldenEye ROM mods when using **GLideN64 with framebuffer emulation enabled**, confirmed in GoldenEye 007 Plus co-op. The emulator identifies GoldenEye's graphics engine and automatically activates GLideN64's existing correction. **Keep framebuffer emulation enabled**; no manual ROM-header edit or GLideN64 update is needed. Recognized mods also use the **GOLDENEYE** custom graphics settings and texture-pack/cache name; individual texture checksums must still match. Unknown graphics or boot layouts retain their existing behavior.
+## GoldenEye Plus and existing features
 
-## Map Maker pause-menu mouse navigation
+- **GoldenEye 007 Plus 2.4 Map Maker free-camera mouse look**, including the confirmed free-fly fix.
+- Separate **E = interact/open doors** and **R = reload** with the usual gameplay bindings, including the supported Plus and Perfect Dark beta layouts.
+- Plus Map Maker texture-scrolling fixes, including backwards scrolling with J and affected IA4 textures, and the Native Test Mode exit fix.
+- Automatic discovery of supported GoldenEye controls, FOV, reload and relocated code; Perfect Dark settings, FOV, 60 FPS and head-roll discovery.
+- Configurable D-pad and L/R shoulder bindings, existing INI settings, and normal W+S input.
 
-Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus's Native Test Mode. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
-
-The v0.2.2 download has been updated in place. Fixes the confirmed freezes and pixelated output while scrolling textures in **GoldenEye 007 Plus's Map Maker**, including scrolling backwards with **J**. Texture selection stays within the valid list, and affected IA4 textures load correctly.
-
-Fixes the black screen after confirming **Exit** in GoldenEye 007 Plus’s **Native Test Mode**. Exit now returns to Map Maker with the current map intact.
-
-Both fixes now recognize **GoldenEye 007 Plus by its ROM header** and follow compatible relocated code, including the newer Plus release. Both have been confirmed in use. Compatible future layouts can be recognized; rewritten or ambiguous code is left unchanged. Replace `1964.exe` with the updated build and cold-boot the ROM. No ROM header editing is needed. Use the matching Mouse Injector v0.3.2 included in the package.
-
-## GoldenEye 007 Plus support
-
-This release supports Josh's **[GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus)**, including mouse look in the Map Maker free camera and mouse navigation in its editor menus. The mod itself includes expanded **1–4-player local co-op**. Thanks to Josh and the GoldenEye Plus contributors for their work.
-
-Online co-op with a full-screen view for each player is a possible future project; it is not included in this release.
+Josh's **[GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus)** includes its Map Maker and expanded **1–4-player local co-op**. Online co-op is not included in this release.
 
 ### Map Maker controls
 
@@ -43,41 +38,42 @@ Defaults with the WASD input profile:
 | Open editor menu | Enter |
 | Editor menus | Hover and left-click; right-click goes back |
 
-The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. All added buttons can be remapped in Input Settings. Keyboard **R remains reload** during gameplay; it is separate from the N64 R shoulder.
+The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. Bindings can be changed in Input Settings. Keyboard **R is reload during gameplay**, separate from the N64 R shoulder.
 
-The Map Maker's editing pause menus support mouse navigation. Regular gameplay watch menus, including the watch in Plus's Native Test Mode, retain keyboard/controller navigation. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls. Mouse look in First Person View and Native Test Mode is unchanged.
+Mouse navigation while paused applies to Map Maker editing menus. Regular GoldenEye gameplay watch menus, including Plus's Native Test Mode, use keyboard/controller navigation. Front-end, multiplayer and confirmation menus retain their existing mouse controls. Orbit mode keeps its keyboard controls. Free-camera mouse look pauses while the editor menu is open.
+
+## GoldenEye mod graphics
+
+Recognized GoldenEye engine mods use GLideN64's existing **GOLDENEYE** graphics profile and texture-pack/cache name. The split-screen correction for the recognized **GLideN64_2020** build is retained; keep framebuffer emulation enabled. Texture checksums must still match the chosen texture pack. The depth adapter checks the graphics DLL before applying its fix; other plugin builds are not assumed to have the same layout.
 
 ## Install
 
-Start with [Graslu's original 1964 GEPD package](https://github.com/Graslu/1964GEPD/releases/tag/latest). Close 1964 and back up your current files, then extract the v0.2.2 ZIP over that folder. Replace **both** `1964.exe` and `plugin/Mouse_Injector.dll`; the matching injector is already included. Keep your existing settings, other plugins and save files, and cold-boot the ROM after upgrading. This ZIP is an update package; it does not include the complete graphics/audio plugin distribution.
+Start with [Graslu's original 1964 GEPD package](https://github.com/Graslu/1964GEPD/releases/tag/latest). Close 1964, back up your current files, then extract this update over that folder. Replace **both `1964.exe` and `plugin/Mouse_Injector.dll`**. Select **Mouse Injector** as the input plugin and cold-boot the ROM after upgrading; an old save state can restore old code.
 
-## GoldenEye Plus and Perfect Dark discovery
+Keep your existing INI files, other plugins and saves. This is an update package, not the complete graphics/audio plugin distribution. No ROMs, game assets or user settings are included.
 
-This source adds content-based GoldenEye detection, independent player/AI/drone
-patch validation, and support for code copied into expansion RAM. ROM patches
-are prepared at the post-IPL game-entry boundary. Later code patches run on
-the emulation thread and invalidate affected compiled blocks.
+[Graslu's setup guide](https://www.youtube.com/watch?v=8mL0I__VMec) · [4K 60 FPS video demo](https://www.youtube.com/watch?v=rxWkLdgdcPA&t=81s)
 
-Perfect Dark's 60 FPS switch, head-roll option getter and pause flag are found
-from unique instruction patterns. The head-roll menu option now covers both
-games. The more invasive PD combat-boost/guard timing shim remains restricted
-to the verified USA Rev 1 layout, with complete original-code checks.
+## Compatibility
 
-Unrecognized or ambiguous instructions are skipped. This does not guarantee
-support for every rewritten mod. Old save states can retain old code and do not
-validate the new boot patches. GoldenEye Plus operation has been confirmed by
-user testing; automated tests also cover the supplied retail GoldenEye, Plus and
-Perfect Dark USA Rev 1 code. This is not a claim that every co-op configuration
-or third-party mod has been tested.
+The Perfect Dark beta build and Plus free-fly fix have been confirmed working in gameplay. Automated checks also cover ROM signatures, input routing, patch ownership and source/build correspondence. Automatic discovery applies to recognized code layouts; missing or ambiguous matches are skipped. PD debug menus use keyboard/controller navigation.
 
-See the [v0.2.2 release notes](docs/releases/automatic-mod-compatibility-v0.2.2.md) for changes and file hashes.
+Retail GoldenEye, Perfect Dark USA Rev 1, GoldenEye X and supported GoldenEye mods retain their respective input paths. The more invasive Perfect Dark combat/guard timing patch remains restricted to its verified USA Rev 1 layout. This emulator is intended for GoldenEye and Perfect Dark; unrelated N64 games may behave incorrectly.
 
-## Credits and upstream project
+If a mod fails, report its exact name/version, required base ROM and what happened. Do not upload ROM files with the report.
 
-This is an unofficial modification of [Graslu's 1964 GEPD Edition](https://github.com/Graslu/1964GEPD). The original GEPD release and documentation are available from [Graslu's releases page](https://github.com/Graslu/1964GEPD/releases).
+See the [current release notes](docs/releases/automatic-mod-compatibility-v0.2.2.md) for downloads and hashes.
 
-1964 is Copyright (c) 1999-2002 Joel Middendorf.
+[Emulator build source](https://github.com/Madcadden/1964GEPD/tree/bf6b09853378a121719179128f4cc8dcface9957) · [Injector build source](https://github.com/Madcadden/mouse-injector/tree/eaa00c1da6e3e2923d6599a16579db53af7db5a7)
 
-The unmodified 1964 0.8.5 source code is available from [SourceForge](https://sourceforge.net/projects/schibo/files/1964%200.8.5/1964-2002-0922.zip/1964-2002-0922.zip).
+## Credits and upstream
 
-> **Notice:** This emulator is intended specifically for GoldenEye 007 and Perfect Dark. Other Nintendo 64 games may receive no benefit or behave incorrectly. ROM files are not included.
+Thanks to **Graslu** for 1964 GEPD and its releases/guides; **Stolen and Carnivorous** for the original Mouse Injector/GEPD work and rewrite; **Joel Middendorf (schibo) and Rice** for 1964 0.8.5; **Catherine Reprobate (NeonNyan), HackBond and Graslu** for later Perfect Dark/decomp work; **Ryan Dwyer** and the Perfect Dark decompilation contributors; and **Ryan C. Gordon and the ManyMouse contributors**.
+
+Thanks to **Josh (Joshua-1248)** and the **GoldenEye 007 Plus** contributors for the mod, Map Maker and expanded local co-op.
+
+Auto-Mod Edition changes by **Jamie McCadden** ( ϓØŁØ ֆШΔǤǤΞƝŞ ). Thanks also to the mod, plugin and texture-pack creators.
+
+[Upstream 1964 GEPD](https://github.com/Graslu/1964GEPD) · [Upstream releases](https://github.com/Graslu/1964GEPD/releases)
+
+1964 is Copyright (c) 1999–2002 Joel Middendorf. The unmodified 1964 0.8.5 source is available from [SourceForge](https://sourceforge.net/projects/schibo/files/1964%200.8.5/1964-2002-0922.zip/1964-2002-0922.zip).

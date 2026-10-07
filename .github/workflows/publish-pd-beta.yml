@@ -1,0 +1,59 @@
+name: Publish confirmed Perfect Dark beta update
+
+on:
+  push:
+    branches: [automatic-mod-compatibility]
+    paths:
+      - .github/workflows/publish-pd-beta.yml
+      - tools/publish_pd_beta.py
+      - release/pd-beta/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pd-beta-release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository_owner == 'Madcadden'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BACKUP_ARTIFACT_NAME: pd-beta-release-backup-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate reviewed payloads without rebuilding
+        run: python3 tools/publish_pd_beta.py prepare
+      - name: Back up current release assets, metadata and tag objects
+        run: python3 tools/publish_pd_beta.py backup
+      - name: Preserve rollback backup before publication
+        id: backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_ARTIFACT_NAME }}
+          path: release-out/previous/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+      - name: Publish and verify existing release links
+        env:
+          BACKUP_ARTIFACT_ID: ${{ steps.backup.outputs.artifact-id }}
+          BACKUP_ARTIFACT_DIGEST: ${{ steps.backup.outputs.artifact-digest }}
+        run: python3 tools/publish_pd_beta.py publish
+      - name: Preserve publication or rollback result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pd-beta-release-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            release-out/*.json
+          if-no-files-found: warn
+          retention-days: 90

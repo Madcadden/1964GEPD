@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "repo": "Madcadden/1964GEPD",
+  "branch": "automatic-mod-compatibility",
+  "kind": "emulator",
+  "before_latest_release_id": 396012238,
+  "targets": [
+    {
+      "before_file": "release/pd-beta/before-v0.1.json",
+      "tag_object": {
+        "sha": "9f18a433cc3fd524721ede2fb3919e49ee45125f",
+        "type": "commit",
+        "url": "https://api.github.com/repos/Madcadden/1964GEPD/git/commits/9f18a433cc3fd524721ede2fb3919e49ee45125f"
+      },
+      "name": "1964 GEPD 0.8.5 - Auto-Mod Edition v0.2.2 - Perfect Dark beta support (legacy v0.1 link)",
+      "body_file": "release/pd-beta/body-v0.1.md",
+      "make_latest": false,
+      "payloads": [
+        {
+          "name": "1964GEPD-Automatic-Mod-Compatibility-v0.1.zip",
+          "path": "release/pd-beta/payloads/1964GEPD-Automatic-Mod-Compatibility-v0.1.zip",
+          "sha256": "c57d9ecacb5bc1c3ef86770cf291a79aba470e5d721f0d308fad512597351ab5",
+          "zip_members": {
+            "1964.exe": "3daaef3916c74d48f1de0dff1606ca3c67d316400c70ecca0723b16575cc9aad",
+            "plugin/Mouse_Injector.dll": "968c4b9ae71f98733ef9a6523086df0890d2267c33795747eaa2bdb175ca0929"
+          }
+        },
+        {
+          "name": "1964GEPD-Automatic-Mod-Compatibility-v0.2.2-Source.zip",
+          "path": "release/pd-beta/payloads/1964GEPD-Automatic-Mod-Compatibility-v0.2.2-Source.zip",
+          "sha256": "2d0dc67c35b62efebe2195e84e11c892f93ee729e30ae4ddcbe8f19bb54347b2"
+        },
+        {
+          "name": "Mouse-Injector-FreeFly-F3-Source.zip",
+          "path": "release/pd-beta/payloads/Mouse-Injector-FreeFly-F3-Source.zip",
+          "sha256": "6c1ab8bb4ea324c9f63c204de441d5a49fe8bdbfa554b3cbbf0711454f7452cf"
+        },
+        {
+          "name": "Mouse-Injector-PD-Beta-Source.zip",
+          "path": "release/pd-beta/payloads/Mouse-Injector-PD-Beta-Source.zip",
+          "sha256": "6c1ab8bb4ea324c9f63c204de441d5a49fe8bdbfa554b3cbbf0711454f7452cf"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "path": "release/pd-beta/payloads/SHA256SUMS-v0.1.txt",
+          "sha256": "2c535c3e7b694b28d7e9bea050c85cfd262866093771923155f0750c5f1214a7"
+        }
+      ]
+    },
+    {
+      "before_file": "release/pd-beta/before-v0.2.2.json",
+      "tag_object": {
+        "sha": "93af8d107c5d9135a70d7a4d1667c55b0646dd20",
+        "type": "commit",
+        "url": "https://api.github.com/repos/Madcadden/1964GEPD/git/commits/93af8d107c5d9135a70d7a4d1667c55b0646dd20"
+      },
+      "name": "1964 GEPD 0.8.5 - Auto-Mod Edition v0.2.2 - Perfect Dark beta support",
+      "body_file": "release/pd-beta/body-v0.2.2.md",
+      "make_latest": true,
+      "payloads": [
+        {
+          "name": "1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip",
+          "path": "release/pd-beta/payloads/1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip",
+          "sha256": "c57d9ecacb5bc1c3ef86770cf291a79aba470e5d721f0d308fad512597351ab5",
+          "zip_members": {
+            "1964.exe": "3daaef3916c74d48f1de0dff1606ca3c67d316400c70ecca0723b16575cc9aad",
+            "plugin/Mouse_Injector.dll": "968c4b9ae71f98733ef9a6523086df0890d2267c33795747eaa2bdb175ca0929"
+          }
+        },
+        {
+          "name": "1964GEPD-Automatic-Mod-Compatibility-v0.2.2-Source.zip",
+          "path": "release/pd-beta/payloads/1964GEPD-Automatic-Mod-Compatibility-v0.2.2-Source.zip",
+          "sha256": "2d0dc67c35b62efebe2195e84e11c892f93ee729e30ae4ddcbe8f19bb54347b2"
+        },
+        {
+          "name": "Mouse-Injector-FreeFly-F3-Source.zip",
+          "path": "release/pd-beta/payloads/Mouse-Injector-FreeFly-F3-Source.zip",
+          "sha256": "6c1ab8bb4ea324c9f63c204de441d5a49fe8bdbfa554b3cbbf0711454f7452cf"
+        },
+        {
+          "name": "Mouse-Injector-PD-Beta-Source.zip",
+          "path": "release/pd-beta/payloads/Mouse-Injector-PD-Beta-Source.zip",
+          "sha256": "6c1ab8bb4ea324c9f63c204de441d5a49fe8bdbfa554b3cbbf0711454f7452cf"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "path": "release/pd-beta/payloads/SHA256SUMS-v0.2.2.txt",
+          "sha256": "0553ff1bc578a559a8e241ad24a0e4957c299523613a65da001937115bd12be9"
+        }
+      ]
+    }
+  ]
+}

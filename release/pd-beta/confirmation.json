@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-07",
+  "user_confirmed": "Perfect Dark beta build working; publish uploaded EXE and DLL to existing releases and repo pages",
+  "candidate_archive_sha256": "03431fae6407b5b9d5d45163df464a5b555f25e8d0aeb1b787213b1d7a6e3824",
+  "emulator_source": "bf6b09853378a121719179128f4cc8dcface9957",
+  "injector_source": "eaa00c1da6e3e2923d6599a16579db53af7db5a7",
+  "exe_sha256": "3daaef3916c74d48f1de0dff1606ca3c67d316400c70ecca0723b16575cc9aad",
+  "dll_sha256": "968c4b9ae71f98733ef9a6523086df0890d2267c33795747eaa2bdb175ca0929",
+  "rebuilt_for_publication": false
+}
